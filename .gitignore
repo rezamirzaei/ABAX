@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs and temporary files
+*.log
+*.txt
+logs/*.txt
+*.tmp
+
+# Data (keep structure, ignore large files)
+data/UAH-DRIVESET-v1/*/*.txt
+data/UAH-DRIVESET-v1/*/*.avi
+*.csv
+!data/processed/.gitkeep
+
+# Results
+results/*.json
+results/figures/*.png
+!results/.gitkeep
+!results/figures/.gitkeep
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# UV / Poetry
+uv.lock
+poetry.lock
+
