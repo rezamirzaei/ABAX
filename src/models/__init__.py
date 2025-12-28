@@ -19,6 +19,14 @@ from src.models.comparison import (
     compare_classifiers,
     compare_regressors,
 )
+from src.models.robust_sparse import (
+    HuberL1Regressor,
+    SCADRegressor,
+    MCPRegressor,
+    HuberSCADRegressor,
+    HuberMCPRegressor,
+    get_sparse_robust_regressors,
+)
 
 # Optional: CNN models (requires PyTorch)
 try:
@@ -45,6 +53,13 @@ __all__ = [
     "get_regressors",
     "compare_classifiers",
     "compare_regressors",
+    # Robust sparse models
+    "HuberL1Regressor",
+    "SCADRegressor",
+    "MCPRegressor",
+    "HuberSCADRegressor",
+    "HuberMCPRegressor",
+    "get_sparse_robust_regressors",
 ]
 
 if _HAS_CNN:

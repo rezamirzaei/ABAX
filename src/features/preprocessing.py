@@ -31,6 +31,7 @@ def encode_and_scale(
         Tuple of (X_train_scaled, X_test_scaled).
     """
     from category_encoders import TargetEncoder
+    from sklearn.impute import SimpleImputer
 
     if categorical_cols is None:
         categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns.tolist()
@@ -41,17 +42,22 @@ def encode_and_scale(
         X_train_encoded = encoder.fit_transform(X_train, y_train)
         X_test_encoded = encoder.transform(X_test)
     else:
-        X_train_encoded = X_train
-        X_test_encoded = X_test
+        X_train_encoded = X_train.copy()
+        X_test_encoded = X_test.copy()
 
     # Convert to numpy
     X_train_arr = X_train_encoded.values if hasattr(X_train_encoded, 'values') else X_train_encoded
     X_test_arr = X_test_encoded.values if hasattr(X_test_encoded, 'values') else X_test_encoded
 
+    # Impute NaN values with median (robust to outliers)
+    imputer = SimpleImputer(strategy='median')
+    X_train_imputed = imputer.fit_transform(X_train_arr)
+    X_test_imputed = imputer.transform(X_test_arr)
+
     # Scale
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train_arr)
-    X_test_scaled = scaler.transform(X_test_arr)
+    X_train_scaled = scaler.fit_transform(X_train_imputed)
+    X_test_scaled = scaler.transform(X_test_imputed)
 
     return X_train_scaled, X_test_scaled
 

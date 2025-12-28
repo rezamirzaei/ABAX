@@ -6,19 +6,36 @@
 
 ---
 
+## 📄 Main Deliverable
+
+> **📕 [ABAX Technical Report (PDF)](docs/ABAX_Technical_Report.pdf)**
+>
+> This is the primary deliverable — a comprehensive LaTeX report covering:
+> - Exploratory Data Analysis (EDA) with visualizations
+> - Preprocessing mindset and leakage awareness
+> - Model selection rationale and comparison
+> - Failure analysis with concrete misclassification examples
+> - Leave-One-Driver-Out cross-validation for realistic evaluation
+> - Production considerations for ABAX deployment
+
+---
+
 ## 📋 Project Overview
 
-This project demonstrates end-to-end machine learning workflows for:
+This project demonstrates end-to-end machine learning workflows for two real-world telematics problems:
+
 1. **Driver Behavior Classification** (UAH-DriveSet)
 2. **Fuel Economy Prediction** (EPA dataset)
 
 ### Key Features
 - ✅ Real-world datasets (not synthetic)
-- ✅ Proper train/test splitting (driver-level for classification)
+- ✅ Driver-level splitting (prevents data leakage)
+- ✅ Leave-One-Driver-Out CV with variance analysis
 - ✅ Robust regression techniques (Huber, Ridge)
 - ✅ Deep learning (CNN with learning curves)
-- ✅ Production-ready OOP structure
-- ✅ Comprehensive notebooks with visualizations
+- ✅ Production-ready OOP structure with Pydantic schemas
+- ✅ Comprehensive failure analysis with concrete examples
+- ✅ Business decision framing (coaching, procurement, insurance)
 
 ---
 
@@ -48,6 +65,18 @@ jupyter lab notebooks/
 python main.py
 ```
 
+### 4. Run Tests
+
+```bash
+pytest tests/
+```
+
+### 5. Compile LaTeX Report
+
+```bash
+cd docs && ./compile_report.sh
+```
+
 ---
 
 ## 📁 Project Structure
@@ -56,13 +85,11 @@ python main.py
 ABAX/
 ├── data/                      # Raw and processed datasets
 │   ├── processed/             # Cleaned data (CSV)
-│   └── UAH-DRIVESET-v1/      # Raw driving telemetry
+│   └── UAH-DRIVESET-v1/       # Raw driving telemetry
 ├── docs/                      # Documentation
-│   ├── data_science_technical_task.md
-│   ├── evaluation_report.md
-│   └── results_report.md
-├── logs/                      # Experiment logs
-│   └── cnn_experiments/       # CNN training logs
+│   ├── ABAX_Technical_Report.pdf   # 📕 MAIN DELIVERABLE
+│   ├── ABAX_Technical_Report.tex   # LaTeX source
+│   └── compile_report.sh           # Build script
 ├── notebooks/                 # Jupyter notebooks
 │   ├── 01_eda_classification.ipynb
 │   ├── 02_classification.ipynb
@@ -70,17 +97,16 @@ ABAX/
 │   └── 04_regression.ipynb
 ├── results/                   # Model outputs
 │   ├── results.json
-│   └── figures/               # Plots and visualizations
-├── scripts/                   # Utility scripts
-├── src/                       # Source code
+│   └── figures/               # 20+ plots and visualizations
+├── src/                       # Source code (production-ready)
 │   ├── core/                  # Pydantic schemas
 │   ├── data/                  # Data loaders
 │   ├── features/              # Preprocessing
 │   ├── models/                # ML models
 │   └── visualization/         # Plotting utilities
-├── tests/                     # Unit tests
+├── tests/                     # Unit tests (20 tests, all passing)
 ├── main.py                    # Main pipeline
-└── pyproject.toml            # Dependencies
+└── pyproject.toml             # Dependencies
 ```
 
 ---
@@ -92,99 +118,65 @@ ABAX/
 **Dataset:** UAH-DriveSet (40 trips, 6 drivers)  
 **Goal:** Predict NORMAL / DROWSY / AGGRESSIVE
 
-**Key Innovation:** Driver-level splitting (hold out D6) ensures generalization to new drivers.
+**Key Innovation:** Driver-level splitting where **D6 is always held out for testing** (never used in training), plus additional stratified samples to reach 20% test size.
 
-**Results:**
-- Random Forest: **92% accuracy** on held-out driver
-- Logistic Regression: 88% accuracy
-- 1D CNN: 90% accuracy
+| Split Strategy | Train | Test | Best Model (RF) |
+|----------------|-------|------|-----------------|
+| D6 + stratified (20%) | 32 samples | 8 samples | 100% accuracy |
+| Leave-One-Driver-Out CV | varies | varies | 77.6% ± 6.6% |
+
+**Insight:** The perfect accuracy on a single split should be interpreted with caution given the small test size. The LODO-CV results (Appendix B) provide a more robust generalization estimate.
 
 ### Task 2: Fuel Economy Prediction
 
 **Dataset:** EPA Fuel Economy (5,000 vehicles, 2015-2024)  
-**Goal:** Predict combined MPG (continuous regression)
+**Goal:** Predict combined MPG
 
-**Key Techniques:**
-- Huber Regressor (robust to outliers)
-- Ridge Regression (handles multicollinearity)
-- Target encoding (high-cardinality categoricals)
+**Leakage Check:** City/highway MPG columns explicitly excluded (see Appendix A in report).
 
-**Results:**
-- Random Forest: **R²=0.94** (excellent!)
-- Huber Regressor: R²=0.89
-- Linear Regression: R²=0.87
+| Model | RMSE | R² | MAPE |
+|-------|------|-----|------|
+| Ridge (L2) | 0.385 | 0.9996 | 1.29% |
+| Random Forest | 0.441 | 0.9995 | 0.45% |
+| Huber (robust) | 0.394 | 0.9996 | 1.27% |
+
+**Why R² is so high:** EPA ratings are deterministic given vehicle specs (standardized testing). Real-world driving would show more variance.
+
+---
+
+## 📊 Key Visualizations
+
+All figures are saved in `results/figures/`:
+
+| Category | Figures |
+|----------|---------|
+| Classification EDA | `class_distribution.png`, `correlation_matrix_classification.png`, `driver_behavior_distribution.png` |
+| Classification Results | `confusion_matrix_classification.png`, `feature_importance_classification.png`, `cnn_learning_curves_classification.png` |
+| Regression EDA | `target_distribution_regression.png`, `correlation_matrix_regression.png`, `target_by_categories_regression.png` |
+| Regression Results | `actual_vs_predicted.png`, `residuals.png`, `prediction_intervals.png` |
+
+---
+
+## 💼 Business Decisions Enabled
+
+This work directly supports ABAX business objectives:
+
+- **Driver Coaching:** Use drowsy/aggressive predictions for in-cab alerts (coaching, not punishment)
+- **Fleet Procurement:** Rank candidate vehicles by predicted fuel cost
+- **Insurance Risk Tiers:** Segment drivers by behavior class for usage-based insurance
+- **Route Planning:** Combine behavior + efficiency for fuel-sensitive routing
 
 ---
 
 ## 🔧 Technical Stack
 
-### Core
-- Python 3.9-3.11
-- NumPy 1.23.5
-- Pandas 2.0.3
-- Scikit-learn 1.6.1
-
-### Deep Learning
-- TensorFlow 2.13.0 (macOS Intel compatible)
-
-### Visualization
-- Matplotlib 3.9.4
-- Seaborn 0.13.2
-
-### Data Quality
-- Pydantic 1.x (type-safe schemas)
-
----
-
-## 📊 Notebooks
-
-### 01_eda_classification.ipynb
-- UAH-DriveSet exploration
-- Class distribution analysis
-- Feature engineering philosophy
-- Driver-level splitting rationale
-
-### 02_classification.ipynb
-- Logistic Regression baseline
-- Random Forest (best: 92%)
-- 1D CNN with learning curves
-- Confusion matrix & feature importance
-
-### 03_eda_regression.ipynb
-- EPA dataset exploration
-- Outlier detection (~10%)
-- High-cardinality categoricals
-- Target vs features analysis
-
-### 04_regression.ipynb
-- Linear, Huber, Ridge regressors
-- Random Forest (R²=0.94)
-- Residual analysis
-- Feature importance
-
----
-
-## 🧪 Testing
-
-```bash
-pytest tests/
-```
-
----
-
-## 💼 Business Relevance (ABAX Context)
-
-### Fleet Management
-- **Driver Safety:** Identify high-risk drivers proactively
-- **Fuel Optimization:** Predict consumption for cost forecasting
-- **Coaching:** Targeted feedback for drowsy/aggressive drivers
-
-### Sustainability
-- **ESG Reporting:** CO2 estimation from fuel economy
-- **Route Optimization:** Based on vehicle characteristics
-
-### Insurance
-- **Risk Assessment:** Behavior-based premium adjustment
+| Category | Technologies |
+|----------|--------------|
+| Core | Python 3.9-3.11, NumPy 1.23.5, Pandas 2.0.3, Scikit-learn 1.6.1 |
+| Deep Learning | TensorFlow 2.13.0 (macOS Intel compatible) |
+| Visualization | Matplotlib 3.9.4, Seaborn 0.13.2 |
+| Data Quality | Pydantic 1.x (type-safe schemas) |
+| Report | LaTeX (tectonic compiler) |
 
 ---
 
@@ -194,34 +186,31 @@ pytest tests/
 
 If you see `ValueError: numpy.dtype size changed`:
 
-1. **Restart Jupyter kernel:** `Kernel → Restart Kernel`
-2. **Select correct kernel:** `Kernel → Change Kernel → ABAX (.venv)`
-3. **Verify environment:**
-   ```bash
-   .venv/bin/python -c "import tensorflow; print(tensorflow.__version__)"
-   ```
-   Should print: `2.13.0`
+1. Restart Jupyter kernel
+2. Select correct kernel: `ABAX (.venv)`
+3. Verify: `.venv/bin/python -c "import tensorflow; print(tensorflow.__version__)"`
 
 ### NumPy Version Mismatch
 
 ```bash
-# Force clean sync
-rm uv.lock
-uv sync
+rm uv.lock && uv sync
 ```
 
 ---
 
-## 📝 Notes
+## ✅ Checklist
 
-### Why NumPy 1.23.5?
-TensorFlow 2.13 (last version supporting macOS Intel) requires NumPy 1.22-1.24.
-
-### Why Pydantic 1.x?
-TensorFlow 2.13 requires `typing-extensions<4.6`, incompatible with Pydantic 2.x.
-
-### Why Driver-Level Splitting?
-Random splits leak information (same driver in train/test). Holding out entire drivers ensures model generalizes to NEW drivers in production.
+- [x] Classification with real-world UAH-DriveSet
+- [x] Regression with EPA Fuel Economy data
+- [x] Driver-level splitting (no leakage)
+- [x] Leave-One-Driver-Out CV with variance
+- [x] Leakage check documented (Appendix A)
+- [x] Misclassification case study (Appendix C)
+- [x] Robust regression (Huber, RANSAC)
+- [x] Deep learning (CNN with learning curves)
+- [x] Production-ready OOP + Pydantic
+- [x] Business decision framing
+- [x] Comprehensive LaTeX report
 
 ---
 
@@ -232,19 +221,4 @@ Applying for: Data Scientist @ ABAX
 
 ---
 
-## ✅ Checklist
-
-- [x] Classification task with real-world data
-- [x] Regression task with robust techniques
-- [x] Outlier handling (Huber regressor)
-- [x] Categorical encoding (target encoding)
-- [x] Deep learning (CNN with learning curves)
-- [x] Production-ready structure (OOP + Pydantic)
-- [x] Comprehensive notebooks with visualizations
-- [x] Driver-level splitting for generalization
-- [x] Business context (ABAX relevant)
-
----
-
 **Status:** ✅ Complete and ready for review!
-

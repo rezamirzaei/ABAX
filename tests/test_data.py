@@ -58,8 +58,8 @@ class TestUAHDataLoader:
             pytest.skip("UAH data not available")
 
         dataset = load_uah_driveset(
-            data_dir,
-            task='regression',
+            data_dir, 
+            task='regression', 
             target_variable='score_total'
         )
 

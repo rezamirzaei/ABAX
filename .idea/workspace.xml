@@ -4,15 +4,26 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/ABAX.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/data_science_technical_task.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="first commit, classification for UAH data and regression for EDA data">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/results_report.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/results_report.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/01_eda_classification.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/01_eda_classification.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/02_classification.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/02_classification.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/04_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/04_regression.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/test_cnn.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/test_cnn.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/epa_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/epa_loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/splitter.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/splitter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/uah_loader.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/uah_loader.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/features/analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/features/analysis.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/features/preprocessing.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/features/preprocessing.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/cnn.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/cnn.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/visualization/plots.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/visualization/plots.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_data.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_pipeline.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,6 +33,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;rezamirzaei&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/rezamirzaei/ABAX.git&quot;,
+    &quot;accountId&quot;: &quot;13b2e180-7a45-4eb2-8390-d35b8c2f0839&quot;
+  }
+}</component>
   <component name="McpProjectServerCommands">
     <commands />
     <urls />
@@ -46,6 +69,7 @@
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "SHELLCHECK.PATH": "/Users/rezami/Library/Application Support/JetBrains/PyCharm2025.3/plugins/Shell Script/shellcheck",
+    "Shell Script.compile_report.sh.executor": "Run",
     "ai.playground.ignore.import.keys.banner.in.settings": "true",
     "git-widget-placeholder": "main",
     "last_opened_file_path": "/Users/rezami/PycharmProjects/ABAX/notebooks",
@@ -64,6 +88,28 @@
       <recent name="$PROJECT_DIR$/data" />
       <recent name="$PROJECT_DIR$/docs" />
     </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="compile_report.sh" type="ShConfigurationType" temporary="true">
+      <option name="SCRIPT_TEXT" value="" />
+      <option name="INDEPENDENT_SCRIPT_PATH" value="true" />
+      <option name="SCRIPT_PATH" value="$PROJECT_DIR$/docs/compile_report.sh" />
+      <option name="SCRIPT_OPTIONS" value="" />
+      <option name="INDEPENDENT_SCRIPT_WORKING_DIRECTORY" value="true" />
+      <option name="SCRIPT_WORKING_DIRECTORY" value="$PROJECT_DIR$/docs" />
+      <option name="INDEPENDENT_INTERPRETER_PATH" value="true" />
+      <option name="INTERPRETER_PATH" value="/bin/bash" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="EXECUTE_IN_TERMINAL" value="true" />
+      <option name="EXECUTE_SCRIPT_FILE" value="true" />
+      <envs />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Shell Script.compile_report.sh" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -85,12 +131,34 @@
       <workItem from="1766446068325" duration="254000" />
       <workItem from="1766446371461" duration="18663000" />
       <workItem from="1766717112304" duration="13057000" />
-      <workItem from="1766730327402" duration="5077000" />
+      <workItem from="1766730327402" duration="6182000" />
+      <workItem from="1766810064676" duration="14713000" />
     </task>
+    <task id="LOCAL-00001" summary="first commit, classification for UAH data and regression for EDA data">
+      <option name="closed" value="true" />
+      <created>1766735659093</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1766735659093</updated>
+    </task>
+    <task id="LOCAL-00002" summary="first commit, classification for UAH data and regression for EDA data">
+      <option name="closed" value="true" />
+      <created>1766735674557</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1766735674557</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="first commit, classification for UAH data and regression for EDA data" />
+    <option name="LAST_COMMIT_MESSAGE" value="first commit, classification for UAH data and regression for EDA data" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>

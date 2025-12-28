@@ -267,11 +267,13 @@ def analyze_correlations(
     # Find high correlation pairs
     high_corr_pairs = find_high_correlation_pairs(corr_matrix, columns, threshold)
 
-    # Target correlations
+    # Target correlations (only for numerical targets)
     target_correlations = None
     if target_column and target_column in df.columns:
-        target_corrs = df[columns].corrwith(df[target_column])
-        target_correlations = {col: round(val, 4) for col, val in target_corrs.items()}
+        # Only compute correlation if target is numerical
+        if pd.api.types.is_numeric_dtype(df[target_column]):
+            target_corrs = df[columns].corrwith(df[target_column])
+            target_correlations = {col: round(val, 4) for col, val in target_corrs.items()}
 
     multicollinearity_warning = any(abs(c) > 0.9 for _, _, c in high_corr_pairs)
 

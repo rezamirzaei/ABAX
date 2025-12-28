@@ -62,56 +62,55 @@ def split_by_driver(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Split data by driver for better generalization testing.
-
+    
     This ensures that trips from the same driver don't appear in both
     train and test sets, which better simulates deployment on new drivers.
-
+    
     **Why this matters:**
     - In real-world deployment, models must work on NEW drivers never seen before
     - Random splits leak information when the same driver appears in train and test
     - Driver-level splits provide realistic generalization estimates
-
+    
     Args:
         X: Features (must contain 'driver' column)
         y: Target
         test_drivers: Specific drivers to hold out for testing (e.g., ['D6'])
         test_size: Approximate fraction for test (used if test_drivers=None)
         random_state: Random seed
-
+        
     Returns:
         X_train, X_test, y_train, y_test (with 'driver' column removed from features)
     """
     if 'driver' not in X.columns:
         raise ValueError("X must contain 'driver' column for driver-level splitting")
-
+    
     # Get unique drivers
     unique_drivers = X['driver'].unique()
-
+    
     if test_drivers is None:
         # Randomly select drivers for test set
         n_test_drivers = max(1, int(len(unique_drivers) * test_size))
         np.random.seed(random_state)
         test_drivers = np.random.choice(unique_drivers, size=n_test_drivers, replace=False)
-
+    
     # Split by driver
     test_mask = X['driver'].isin(test_drivers)
     train_mask = ~test_mask
-
+    
     X_train = X[train_mask].copy()
     X_test = X[test_mask].copy()
     y_train = y[train_mask].copy()
     y_test = y[test_mask].copy()
-
+    
     # Remove driver column from features
     X_train = X_train.drop(columns=['driver'])
     X_test = X_test.drop(columns=['driver'])
-
+    
     print(f"\n📊 Driver-level split:")
     print(f"  Train drivers: {sorted([d for d in unique_drivers if d not in test_drivers])}")
     print(f"  Test drivers: {sorted(test_drivers)}")
     print(f"  Train samples: {len(X_train)}")
     print(f"  Test samples: {len(X_test)}")
     print(f"  ✅ This ensures generalization to NEW DRIVERS\n")
-
+    
     return X_train, X_test, y_train, y_test
-

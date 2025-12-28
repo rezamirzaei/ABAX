@@ -382,4 +382,3 @@ The combination of **classical ML** (Random Forest) and **deep learning** (CNN) 
 **LinkedIn:** [Your LinkedIn]  
 **GitHub:** [Your GitHub]  
 **Project Repository:** [Link to repo]
-

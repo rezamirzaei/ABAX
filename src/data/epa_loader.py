@@ -14,10 +14,36 @@ class EPADataLoader:
 
     URL = "https://www.fueleconomy.gov/feg/epadata/vehicles.csv"
 
+    # Features to use - all useful vehicle characteristics
+    # EXCLUDED (data leakage - derived from target comb08):
+    #   - city08, highway08, cityA08, highwayA08 (component MPG)
+    #   - co2TailpipeGpm, co2 (derived from MPG)
+    #   - fuelCost08, fuelCostA08, youSaveSpend (derived from MPG)
+    #   - ghgScore, feScore (derived scores)
+    # EXCLUDED (not useful):
+    #   - id, createdOn, modifiedOn (metadata)
     KEEP_COLS = [
-        'year', 'make', 'VClass', 'drive', 'trany', 'fuelType',
-        'cylinders', 'displ', 'city08', 'highway08', 'comb08',
-        'co2TailpipeGpm', 'fuelCost08'
+        # Target
+        'comb08',
+        # Vehicle identification
+        'year', 'make', 'model',
+        # Vehicle class & body
+        'VClass', 'sCharger', 'tCharger', 'atvType',
+        # Drivetrain
+        'drive', 'trany', 'trans_dscr',
+        # Engine
+        'cylinders', 'displ', 'eng_dscr', 'engId',
+        # Fuel
+        'fuelType', 'fuelType1', 'fuelType2',
+        # Electric/Hybrid
+        'evMotor', 'mfrCode', 'c240Dscr', 'charge240b', 'c240bDscr',
+        # Range
+        'range', 'rangeCity', 'rangeHwy', 'rangeA',
+        # Physical
+        'hlv', 'hpv', 'lv2', 'lv4', 'pv2', 'pv4',  # cargo volumes
+        'startStop', 'phevBlended',
+        # Certifications
+        'guzzler', 'phevCity', 'phevHwy', 'phevComb',
     ]
 
     def load(
@@ -46,9 +72,10 @@ class EPADataLoader:
         except Exception as e:
             raise ConnectionError(f"Failed to download EPA data: {e}")
 
-        # Select relevant columns
+        # Select relevant columns (only those that exist in the dataset)
         keep_cols = [c for c in self.KEEP_COLS if c in df.columns]
         df = df[keep_cols].copy()
+        print(f"   Selected {len(keep_cols)} useful columns")
 
         # Filter by year
         if year_min:
