@@ -4,12 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="better mindset for 02">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" afterDir="false" />
+    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="more content">
+      <change beforePath="$PROJECT_DIR$/notebooks/01_project_overview.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/01_project_overview.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/02_classification.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/02_classification.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/05_raw_data_analysis.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/generate_all_figures.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/generate_all_figures.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,7 +117,7 @@
       <workItem from="1766717112304" duration="13057000" />
       <workItem from="1766730327402" duration="6182000" />
       <workItem from="1766810064676" duration="24181000" />
-      <workItem from="1766895846673" duration="16222000" />
+      <workItem from="1766895846673" duration="17147000" />
     </task>
     <task id="LOCAL-00001" summary="first commit, classification for UAH data and regression for EDA data">
       <option name="closed" value="true" />
@@ -185,7 +183,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766959564094</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="more content">
+      <option name="closed" value="true" />
+      <created>1766963042847</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1766963042847</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -199,7 +205,8 @@
     <MESSAGE value="knn added" />
     <MESSAGE value="raw data make more sense to use score information" />
     <MESSAGE value="better mindset for 02" />
-    <option name="LAST_COMMIT_MESSAGE" value="better mindset for 02" />
+    <MESSAGE value="more content" />
+    <option name="LAST_COMMIT_MESSAGE" value="more content" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
