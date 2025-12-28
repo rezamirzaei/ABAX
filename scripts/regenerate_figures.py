@@ -145,23 +145,35 @@ def train_models(X_train, y_train, X_test, y_test):
     results = []
     trained_models = {}
 
-    for name, model in models.items():
-        print(f"Training {name}...")
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+    print(f"\n{'Model':<20} {'Train Acc':<12} {'Test Acc':<12} {'Test F1':<10} {'Overfit?':<10}")
+    print("-" * 65)
 
+    for name, model in models.items():
+        model.fit(X_train, y_train)
+
+        # Train accuracy
+        y_pred_train = model.predict(X_train)
+        train_acc = accuracy_score(y_train, y_pred_train)
+
+        # Test accuracy
+        y_pred = model.predict(X_test)
         acc = accuracy_score(y_test, y_pred)
         bal_acc = balanced_accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred, average='weighted')
 
+        # Check overfitting
+        gap = train_acc - acc
+        overfit = "⚠️ YES" if gap > 0.2 else "✅ No"
+
         results.append({
             'Model': name,
+            'Train Accuracy': train_acc,
             'Accuracy': acc,
             'Balanced Accuracy': bal_acc,
             'F1 Score': f1
         })
         trained_models[name] = model
-        print(f"  Accuracy: {acc:.4f}, F1: {f1:.4f}")
+        print(f"{name:<20} {train_acc:<12.4f} {acc:<12.4f} {f1:<10.4f} {overfit}")
 
     return pd.DataFrame(results), trained_models
 

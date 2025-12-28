@@ -10,6 +10,8 @@
 \usepackage{subcaption}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{amssymb}
+\usepackage{amsmath}
 
 \geometry{margin=1in}
 
@@ -101,6 +103,71 @@ The UAH-DriveSet dataset contains real-world trips from a small set of drivers. 
     \label{fig:outliers_class}
 \end{figure}
 
+\subsection{Event Detection and Scoring: How It Works}
+Before discussing preprocessing, it is important to understand how driving events are detected and scored in the UAH-DriveSet. This knowledge is essential for feature engineering and model interpretation.
+
+\subsubsection{Raw Sensor Data}
+The DriveSafe app (used to collect UAH-DriveSet) relies on two primary data sources:
+\begin{itemize}
+    \item \textbf{GPS} (1 Hz): Provides speed, coordinates, course (heading direction), and course changes.
+    \item \textbf{Accelerometer} (higher frequency): Provides 3-axis acceleration (X, Y, Z) in units of g-force.
+\end{itemize}
+
+The phone orientation determines which axis measures what:
+\begin{itemize}
+    \item \textbf{X-axis (Longitudinal)}: Forward/backward movement $\rightarrow$ \textit{Braking} (negative X) and \textit{Acceleration} (positive X).
+    \item \textbf{Y-axis (Lateral)}: Left/right movement $\rightarrow$ \textit{Turning}.
+    \item \textbf{Z-axis (Vertical)}: Up/down movement $\rightarrow$ Road bumps, inclination.
+\end{itemize}
+
+\subsubsection{Event Detection Algorithm}
+Events are detected by applying thresholds to the filtered accelerometer data:
+\begin{enumerate}
+    \item \textbf{Kalman Filter}: Raw accelerometer data is noisy. A Kalman filter smooths the signal while preserving sharp events.
+    \item \textbf{Threshold Detection}: When filtered acceleration exceeds a threshold in a specific axis, an event is recorded:
+    \begin{itemize}
+        \item Braking event: $a_x < -\text{threshold}$
+        \item Acceleration event: $a_x > +\text{threshold}$
+        \item Turning event: $|a_y| > \text{threshold}$
+    \end{itemize}
+    \item \textbf{Severity Classification}: Events are classified by intensity:
+    \begin{itemize}
+        \item \textbf{Low}: Mild event (e.g., gentle braking)
+        \item \textbf{Medium}: Moderate event (e.g., normal braking)
+        \item \textbf{High}: Harsh event (e.g., emergency braking)
+    \end{itemize}
+\end{enumerate}
+
+Lane changes and weaving are detected from GPS course changes---sudden heading variations indicate lateral movement.
+
+\subsubsection{Scoring System}
+The DriveSafe algorithm computes scores (0--100) for each behavior dimension:
+\begin{itemize}
+    \item \textbf{100} = Perfect (no events detected)
+    \item \textbf{0} = Worst (many high-severity events)
+\end{itemize}
+
+The scoring formula (simplified) is:
+\begin{equation}
+    \text{score} = 100 - \text{penalty\_factor} \times \text{weighted\_event\_count}
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item \texttt{penalty\_factor} depends on event severity (high $>$ medium $>$ low)
+    \item Events are weighted by type and road context (motorway vs. secondary)
+\end{itemize}
+
+The \textbf{behavior ratios} (ratio\_normal, ratio\_drowsy, ratio\_aggressive) represent the fraction of the trip where the instantaneous behavior matched each category.
+
+\subsubsection{Implications for Modeling}
+Understanding this pipeline helps us:
+\begin{enumerate}
+    \item \textbf{Avoid leakage}: Scores and ratios are derived from heuristic rules; using them as features may teach the model to mimic the heuristic rather than learn true patterns.
+    \item \textbf{Feature engineering}: Raw accelerometer statistics (mean, std, jerk) and event counts provide alternative features less coupled to the labeling heuristic.
+    \item \textbf{Interpretation}: When a model relies heavily on \texttt{score\_total}, it may be indirectly using the same heuristic that defined the labels.
+\end{enumerate}
+
 \subsection{Data Preprocessing and Mindset}
 \subsubsection{Preprocessing strategy}
 Instead of modelling raw time-series directly, we use an \textbf{aggregation strategy} and compute a fixed-length feature vector per trip. The feature contract is:
@@ -161,22 +228,28 @@ Table~\ref{tab:clf_metrics} summarizes the core metrics from the evaluation pipe
 
 \begin{table}[H]
 \centering
-\caption{Classification model performance (driver behavior). Test set: D6 (5 samples) + 3 stratified samples = 8 total (20\%). Higher is better.}
+\caption{Classification model performance (driver behavior). Test set: D6 (5 samples) + 3 stratified samples = 8 total (20\%). Train Acc helps detect overfitting.}
 \label{tab:clf_metrics}
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \toprule
-\textbf{Model} & \textbf{Accuracy} & \textbf{Balanced Acc.} & \textbf{F1 (weighted)} \\
+\textbf{Model} & \textbf{Train Acc} & \textbf{Test Acc} & \textbf{Test F1} & \textbf{Overfit?} \\
 \midrule
-Random Forest & 1.0000 & 1.0000 & 1.0000 \\
-Gradient Boosting & 0.6250 & 0.6667 & 0.6042 \\
-Logistic Regression (L1) & 0.6250 & 0.6667 & 0.6018 \\
-Logistic Regression (L2) & 0.6250 & 0.6667 & 0.6018 \\
-SVM (RBF) & 0.5000 & 0.5000 & 0.3875 \\
+Random Forest & 1.0000 & 1.0000 & 1.0000 & ? \\
+Gradient Boosting & 1.0000 & 0.6250 & 0.6042 & $\checkmark$ \\
+Logistic Regression (L1) & 0.8438 & 0.6250 & 0.6018 & $\checkmark$ \\
+Logistic Regression (L2) & 0.9375 & 0.6250 & 0.6018 & $\checkmark$ \\
+SVM (RBF) & 0.6875 & 0.5000 & 0.3875 & $\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Note:} The Random Forest achieves perfect accuracy on this specific split. However, given the small test set size (8 samples), this should be interpreted with caution. The Leave-One-Driver-Out CV results in Appendix B provide a more robust estimate of generalization performance.
+\textbf{Interpretation:}
+\begin{itemize}
+    \item \textbf{Random Forest (100\% train, 100\% test)}: Perfect test accuracy on 8 samples is suspicious. The Leave-One-Driver-Out CV (Appendix B) provides a more robust estimate (~77\%).
+    \item \textbf{Gradient Boosting (100\% train, 62.5\% test)}: Clear overfitting---memorizes training data but fails to generalize.
+    \item \textbf{Logistic Regression}: Moderate overfitting; the linear model still captures some signal.
+    \item \textbf{SVM RBF (68.75\% train, 50\% test)}: Underfitting---the RBF kernel may not be optimal for these features without tuning.
+\end{itemize}
 
 \begin{figure}[H]
     \centering

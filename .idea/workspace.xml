@@ -4,12 +4,16 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="enhance results">
+    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="some enhancement">
       <change beforePath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/ABAX_Technical_Report.tex" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ABAX_Technical_Report.tex" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/01_eda_classification.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/01_eda_classification.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/02_classification.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/02_classification.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/04_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/04_regression.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/regenerate_figures.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/regenerate_figures.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/data/splitter.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/splitter.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -118,7 +122,7 @@
       <workItem from="1766446371461" duration="18663000" />
       <workItem from="1766717112304" duration="13057000" />
       <workItem from="1766730327402" duration="6182000" />
-      <workItem from="1766810064676" duration="16975000" />
+      <workItem from="1766810064676" duration="24181000" />
     </task>
     <task id="LOCAL-00001" summary="first commit, classification for UAH data and regression for EDA data">
       <option name="closed" value="true" />
@@ -144,7 +148,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766881796076</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="some enhancement">
+      <option name="closed" value="true" />
+      <created>1766885645849</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1766885645849</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -153,7 +165,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="first commit, classification for UAH data and regression for EDA data" />
     <MESSAGE value="enhance results" />
-    <option name="LAST_COMMIT_MESSAGE" value="enhance results" />
+    <MESSAGE value="some enhancement" />
+    <option name="LAST_COMMIT_MESSAGE" value="some enhancement" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
