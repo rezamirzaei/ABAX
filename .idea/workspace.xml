@@ -4,22 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="raw data make more sense to use score information">
+    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="better mindset for 02">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/ABAX_Technical_Report.tex" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ABAX_Technical_Report.tex" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/compile_report.sh" beforeDir="false" afterPath="$PROJECT_DIR$/docs/compile_report.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/01_eda_classification.ipynb" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/notebooks/02_classification.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/02_classification.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/04_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/04_regression.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/notebooks/05_raw_data_analysis.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/05_raw_data_analysis.ipynb" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/regenerate_corrupted_figures.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/regenerate_corrupted_figures.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/regenerate_figures.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/regenerate_figures.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/verify_figures.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/verify_figures.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/data/splitter.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/data/splitter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/models/cnn.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/cnn.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/05_raw_data_analysis.ipynb" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/generate_all_figures.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/generate_all_figures.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -129,7 +119,7 @@
       <workItem from="1766717112304" duration="13057000" />
       <workItem from="1766730327402" duration="6182000" />
       <workItem from="1766810064676" duration="24181000" />
-      <workItem from="1766895846673" duration="12992000" />
+      <workItem from="1766895846673" duration="16222000" />
     </task>
     <task id="LOCAL-00001" summary="first commit, classification for UAH data and regression for EDA data">
       <option name="closed" value="true" />
@@ -187,7 +177,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766902522632</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="better mindset for 02">
+      <option name="closed" value="true" />
+      <created>1766959564094</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1766959564094</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -200,7 +198,8 @@
     <MESSAGE value="some explanation added to notebooks" />
     <MESSAGE value="knn added" />
     <MESSAGE value="raw data make more sense to use score information" />
-    <option name="LAST_COMMIT_MESSAGE" value="raw data make more sense to use score information" />
+    <MESSAGE value="better mindset for 02" />
+    <option name="LAST_COMMIT_MESSAGE" value="better mindset for 02" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>

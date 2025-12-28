@@ -1,0 +1,241 @@
+"""
+Raw Data Loading and Feature Extraction Module.
+
+Clean, reusable functions for loading UAH-DriveSet data.
+"""
+
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from typing import List, Dict, Optional, Any
+from dataclasses import dataclass
+
+
+@dataclass
+class TripInfo:
+    """Container for trip metadata."""
+    path: Path
+    driver: str
+    behavior: str
+    road_type: str
+
+
+def get_all_trips(data_dir: Path) -> List[TripInfo]:
+    """
+    Discover all trips in the UAH-DriveSet directory.
+
+    Args:
+        data_dir: Path to UAH-DRIVESET-v1 directory
+
+    Returns:
+        List of TripInfo objects
+    """
+    trips = []
+
+    for driver_dir in sorted(data_dir.glob('D*')):
+        if not driver_dir.is_dir():
+            continue
+        driver = driver_dir.name
+
+        for trip_dir in sorted(driver_dir.iterdir()):
+            if not trip_dir.is_dir():
+                continue
+
+            parts = trip_dir.name.split('-')
+            if len(parts) >= 3:
+                behavior = parts[1].upper()
+                road_type = parts[2].upper()
+
+                trips.append(TripInfo(
+                    path=trip_dir,
+                    driver=driver,
+                    behavior=behavior,
+                    road_type=road_type
+                ))
+
+    return trips
+
+
+def load_raw_gps(trip_path: Path) -> Optional[pd.DataFrame]:
+    """Load raw GPS data from a trip directory."""
+    gps_file = trip_path / 'RAW_GPS.txt'
+    if not gps_file.exists():
+        return None
+
+    try:
+        df = pd.read_csv(gps_file, sep=' ', header=None,
+                         names=['timestamp', 'lat', 'lon', 'speed', 'course', 'altitude'])
+        return df
+    except Exception:
+        return None
+
+
+def load_raw_accelerometer(trip_path: Path) -> Optional[pd.DataFrame]:
+    """Load raw accelerometer data from a trip directory."""
+    acc_file = trip_path / 'RAW_ACCELEROMETERS.txt'
+    if not acc_file.exists():
+        return None
+
+    try:
+        df = pd.read_csv(acc_file, sep=' ', header=None,
+                         names=['timestamp', 'acc_x', 'acc_y', 'acc_z',
+                                'acc_x_kf', 'acc_y_kf', 'acc_z_kf'])
+        return df
+    except Exception:
+        return None
+
+
+def load_inertial_events(trip_path: Path) -> Optional[pd.DataFrame]:
+    """Load inertial events from a trip directory."""
+    events_file = trip_path / 'EVENTS_INERTIAL.txt'
+    if not events_file.exists():
+        return None
+
+    try:
+        df = pd.read_csv(events_file, sep=' ', header=None,
+                         names=['timestamp', 'event_code', 'event_name',
+                                'level_code', 'level_name'])
+        return df
+    except Exception:
+        return None
+
+
+def compute_acceleration_magnitude(acc_x: np.ndarray, acc_y: np.ndarray, acc_z: np.ndarray) -> np.ndarray:
+    """Compute acceleration magnitude from 3-axis data."""
+    return np.sqrt(acc_x**2 + acc_y**2 + acc_z**2)
+
+
+def extract_raw_features(trip_path: Path) -> Dict[str, float]:
+    """
+    Extract statistical features from raw sensor data for a single trip.
+
+    Args:
+        trip_path: Path to trip directory
+
+    Returns:
+        Dictionary of feature_name -> value
+    """
+    features = {}
+
+    # GPS features
+    gps = load_raw_gps(trip_path)
+    if gps is not None and len(gps) > 1:
+        features['speed_mean'] = gps['speed'].mean()
+        features['speed_std'] = gps['speed'].std()
+        features['speed_max'] = gps['speed'].max()
+        features['speed_min'] = gps['speed'].min()
+        features['speed_change_mean'] = gps['speed'].diff().abs().mean()
+        features['speed_change_std'] = gps['speed'].diff().abs().std()
+        features['course_change_mean'] = gps['course'].diff().abs().mean()
+        features['course_change_std'] = gps['course'].diff().abs().std()
+        features['course_change_max'] = gps['course'].diff().abs().max()
+        features['trip_duration'] = gps['timestamp'].max() - gps['timestamp'].min()
+
+    # Accelerometer features
+    acc = load_raw_accelerometer(trip_path)
+    if acc is not None and len(acc) > 1:
+        features['acc_x_mean'] = acc['acc_x_kf'].mean()
+        features['acc_x_std'] = acc['acc_x_kf'].std()
+        features['acc_y_mean'] = acc['acc_y_kf'].mean()
+        features['acc_y_std'] = acc['acc_y_kf'].std()
+
+        # Magnitude
+        mag = compute_acceleration_magnitude(
+            acc['acc_x_kf'].values,
+            acc['acc_y_kf'].values,
+            acc['acc_z_kf'].values
+        )
+        features['acc_magnitude_mean'] = mag.mean()
+        features['acc_magnitude_std'] = mag.std()
+        features['acc_magnitude_max'] = mag.max()
+
+        # Jerk (rate of acceleration change)
+        features['jerk_x_std'] = acc['acc_x_kf'].diff().std()
+        features['jerk_y_std'] = acc['acc_y_kf'].diff().std()
+
+        # Event-like features from thresholds
+        features['brake_count'] = (acc['acc_x_kf'] < -0.1).sum()
+        features['hard_brake_count'] = (acc['acc_x_kf'] < -0.3).sum()
+        features['accel_count'] = (acc['acc_x_kf'] > 0.1).sum()
+        features['turn_count'] = (acc['acc_y_kf'].abs() > 0.1).sum()
+        features['sharp_turn_count'] = (acc['acc_y_kf'].abs() > 0.3).sum()
+
+    # Event features
+    events = load_inertial_events(trip_path)
+    if events is not None and len(events) > 0:
+        # Convert to string to handle numeric or mixed types
+        events['event_name'] = events['event_name'].astype(str)
+        events['level_name'] = events['level_name'].astype(str)
+
+        for event_type in ['BRAKING', 'TURNING', 'ACCELERATION']:
+            event_mask = events['event_name'].str.upper().str.contains(event_type, na=False)
+            event_df = events[event_mask]
+            features[f'event_{event_type.lower()}_count'] = len(event_df)
+            for level in ['LOW', 'MEDIUM', 'HIGH']:
+                level_count = (event_df['level_name'].str.upper() == level).sum()
+                features[f'event_{event_type.lower()}_{level.lower()}'] = level_count
+
+    return features
+
+
+def build_raw_dataset(trips: List[TripInfo], verbose: bool = True) -> pd.DataFrame:
+    """
+    Build complete dataset from all trips.
+
+    Args:
+        trips: List of TripInfo objects
+        verbose: Print progress
+
+    Returns:
+        DataFrame with one row per trip
+    """
+    rows = []
+
+    for i, trip in enumerate(trips):
+        features = extract_raw_features(trip.path)
+        features['driver'] = trip.driver
+        features['behavior'] = trip.behavior
+        features['road_type'] = trip.road_type
+        rows.append(features)
+
+        if verbose and (i + 1) % 10 == 0:
+            print(f"  Processed {i + 1}/{len(trips)} trips")
+
+    df = pd.DataFrame(rows)
+
+    if verbose:
+        print(f"✅ Built dataset: {df.shape}")
+
+    return df
+
+
+def load_or_build_dataset(
+    data_dir: Path,
+    cache_path: Optional[Path] = None,
+    force_rebuild: bool = False
+) -> pd.DataFrame:
+    """
+    Load cached dataset or build from raw data.
+
+    Args:
+        data_dir: Path to UAH-DRIVESET-v1 directory
+        cache_path: Path to cache CSV file
+        force_rebuild: Force rebuild even if cache exists
+
+    Returns:
+        DataFrame with extracted features
+    """
+    if cache_path and cache_path.exists() and not force_rebuild:
+        print(f"📂 Loading cached dataset: {cache_path}")
+        return pd.read_csv(cache_path)
+
+    print("🔧 Building dataset from raw data...")
+    trips = get_all_trips(data_dir)
+    df = build_raw_dataset(trips)
+
+    if cache_path:
+        df.to_csv(cache_path, index=False)
+        print(f"💾 Saved to: {cache_path}")
+
+    return df
+
