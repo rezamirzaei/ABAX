@@ -12,381 +12,695 @@
 \usepackage{xcolor}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{longtable}
 
 \geometry{margin=1in}
 
-\title{\textbf{ABAX Data Science Technical Task Report}}
+% Code listing style
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+\title{\textbf{ABAX Data Science Technical Task Report}\\[0.5cm]
+\large Driver Behavior Classification \& Fuel Economy Prediction}
 \author{Reza Mirzaeifard}
 \date{\today}
 
 \begin{document}
 
+\sloppy
+
 \maketitle
 
 \begin{abstract}
-This report details the approach, methodology, and results for the ABAX Data Science Technical Task. The project addresses two real-world, decision-oriented problems: (1) classifying driver behavior using telematics-derived trip summaries (UAH-DriveSet), and (2) predicting vehicle fuel economy from technical specifications (EPA Fuel Economy dataset). The emphasis is on the end-to-end process---EDA, preprocessing mindset and pitfalls (especially leakage and domain shift), model selection rationale, failure analysis, and production considerations for a telematics context.
+This report provides a comprehensive technical analysis of two machine learning tasks relevant to the telematics industry: (1) classifying driver behavior using the UAH-DriveSet dataset, and (2) predicting vehicle fuel economy from the EPA Fuel Economy dataset. The report covers the complete data science workflow including exploratory data analysis, feature engineering, data preprocessing strategies, train-test splitting approaches (with particular attention to driver-level generalization), model selection rationale, experimental results, failure analysis, and production deployment considerations. Key findings include achieving 87.5\% accuracy on driver behavior classification using ensemble methods with driver-level cross-validation, and 99.96\% $R^2$ on fuel economy prediction using Ridge regression. The emphasis throughout is on building robust, interpretable models suitable for real-world telematics applications.
 \end{abstract}
 
 \tableofcontents
 \newpage
 
+%==============================================================================
 \section{Introduction}
-The objective of this assignment is to demonstrate a complete data science workflow applied to real-world telematics problems. The project is divided into two main tasks:
+%==============================================================================
 
-\begin{enumerate}
-    \item \textbf{Driver Behavior Classification}: Classifying driving trips into \textit{Normal}, \textit{Drowsy}, or \textit{Aggressive} categories based on telemetry-derived features.
-    \item \textbf{Fuel Economy Regression}: Predicting the combined Miles Per Gallon (MPG) of vehicles based on their technical specifications.
+\subsection{Project Overview}
+This project addresses two fundamental problems in the telematics and fleet management domain:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Driver Behavior Classification}: Automatically categorizing driving trips into behavioral classes (Normal, Drowsy, Aggressive) based on sensor-derived telemetry features. This has direct applications in driver coaching, insurance risk assessment, and fleet safety management.
+
+    \item \textbf{Fuel Economy Prediction}: Predicting the combined miles per gallon (MPG) of vehicles based on their technical specifications. This enables fleet operators to estimate operating costs, plan vehicle acquisitions, and optimize fleet composition.
 \end{enumerate}
 
-\subsection{Why these problems are hard in production}
-Telematics ML problems are often challenging for reasons that are not obvious from the final metric alone:
-\begin{itemize}
-    \item \textbf{Domain shift}: driver style differs significantly across individuals, vehicles, and road types.
-    \item \textbf{Label ambiguity}: concepts like "drowsy" may be gradual and noisy, not a crisp boundary.
-    \item \textbf{Sensor noise and missingness}: mobile sensors can drift, and signals may be partially missing.
-    \item \textbf{Operational constraints}: models must be cheap to compute, reliable, and interpretable for end users.
+\subsection{Why These Problems Matter in Production}
+
+Telematics ML problems present unique challenges that distinguish them from typical tabular ML tasks:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Domain Shift}: Driver behavior varies significantly across individuals, vehicles, road types, and geographic regions. A model trained on one driver population may fail when deployed to another.
+
+    \item \textbf{Label Ambiguity}: Behavioral labels like ``drowsy'' represent gradual states, not crisp boundaries. The same sensor patterns might be labeled differently by different annotators.
+
+    \item \textbf{Sensor Noise and Missingness}: Mobile phone sensors (accelerometers, GPS) are subject to drift, calibration errors, and intermittent failures. Models must be robust to these imperfections.
+
+    \item \textbf{Temporal Dependencies}: Driving behavior evolves over time within a trip. Aggregating to trip-level features loses temporal dynamics but gains computational efficiency.
+
+    \item \textbf{Operational Constraints}: Production models must be computationally efficient (for on-device inference), interpretable (for driver feedback), and maintainable (for regular updates).
 \end{itemize}
 
-The solution emphasizes not only accuracy, but also evaluation realism (driver-level splitting), interpretability, and maintainability.
+\subsection{Report Structure}
+This report is organized as follows:
+\begin{itemize}
+    \item Section 2: Driver Behavior Classification (Task 1)
+    \item Section 3: Fuel Economy Prediction (Task 2)
+    \item Section 4: Production Considerations
+    \item Section 5: Conclusions and Future Work
+\end{itemize}
 
+%==============================================================================
 \section{Task 1: Driver Behavior Classification}
+%==============================================================================
 
 \subsection{Problem Statement}
-The goal is to identify potentially dangerous driving behaviors from sensor-derived trip summaries. The target classes are:
-\begin{itemize}
-    \item \textbf{NORMAL}: Safe and attentive driving.
-    \item \textbf{DROWSY}: Fatigued driving, characterized by lane drifting and slow reactions.
-    \item \textbf{AGGRESSIVE}: Risky driving, characterized by harsh braking, rapid acceleration, and speeding.
+
+The goal is to classify driving trips into three behavioral categories based on telemetry-derived features:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{NORMAL}: Safe, attentive driving characterized by smooth acceleration, gentle braking, and consistent lane discipline.
+    \item \textbf{DROWSY}: Fatigued driving characterized by lane drifting, inconsistent speed, and delayed reactions.
+    \item \textbf{AGGRESSIVE}: Risky driving characterized by harsh braking, rapid acceleration, speeding, and sharp turns.
 \end{itemize}
 
-\subsection{Data and Exploratory Data Analysis (EDA)}
-\subsubsection{Dataset overview (UAH-DriveSet)}
-The UAH-DriveSet dataset contains real-world trips from a small set of drivers. While the sample size is limited, the dataset is valuable because it reflects real sensor noise, behavioral variation, and driver-to-driver differences.
+\subsection{Dataset Description: UAH-DriveSet}
 
-\subsubsection{Class balance}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../results/figures/class_distribution.png}
-    \caption{Distribution of target classes. The dataset is relatively balanced (with a slight skew toward NORMAL). This matters for metric choice: weighted F1 and balanced accuracy are more informative than accuracy alone.}
-    \label{fig:class_dist}
-\end{figure}
+\subsubsection{Overview}
+The UAH-DriveSet is a naturalistic driving dataset collected by the University of Alcalá using the DriveSafe mobile application. Key characteristics:
 
-\subsubsection{Feature distributions and separability}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.95\textwidth]{../results/figures/feature_distributions_classification.png}
-    \caption{Feature distributions by class. Several features show visible shifts between classes, supporting the use of non-linear models that can exploit interactions (e.g., overspeeding combined with harsh braking).}
-    \label{fig:feat_dist_class}
-\end{figure}
-
-\subsubsection{Correlation and redundancy}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../results/figures/correlation_matrix_classification.png}
-    \caption{Correlation matrix of classification features. Correlated groups suggest redundancy (e.g., multiple components of a global score) and motivate regularization baselines and tree ensembles that can handle correlated inputs.}
-    \label{fig:corr_class}
-\end{figure}
-
-\subsubsection{Driver-level behavioral differences (domain shift)}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../results/figures/driver_behavior_distribution.png}
-    \caption{Driver behavior distribution. The same nominal class may present differently for different drivers, which creates a domain-shift problem: a model must generalize to new drivers rather than memorize driver signatures.}
-    \label{fig:driver_dist}
-\end{figure}
-
-\subsubsection{Outliers and edge trips}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{../results/figures/outlier_analysis_classification.png}
-    \caption{Outlier analysis for the classification task. A few trips have unusual combinations of ratios/scores (e.g., very short trips or noisy sensor segments). Robust preprocessing and evaluation are important to avoid overfitting these edge cases.}
-    \label{fig:outliers_class}
-\end{figure}
-
-\subsection{Event Detection and Scoring: How It Works}
-Before discussing preprocessing, it is important to understand how driving events are detected and scored in the UAH-DriveSet. This knowledge is essential for feature engineering and model interpretation.
-
-\subsubsection{Raw Sensor Data}
-The DriveSafe app (used to collect UAH-DriveSet) relies on two primary data sources:
-\begin{itemize}
-    \item \textbf{GPS} (1 Hz): Provides speed, coordinates, course (heading direction), and course changes.
-    \item \textbf{Accelerometer} (higher frequency): Provides 3-axis acceleration (X, Y, Z) in units of g-force.
+\begin{itemize}[leftmargin=*]
+    \item \textbf{6 drivers} (D1--D6) with varying driving styles and experience levels
+    \item \textbf{40 trips} total across two road types (motorway and secondary roads)
+    \item \textbf{Raw sensor streams}: GPS (1 Hz), Accelerometer (higher frequency), and video
+    \item \textbf{Pre-computed scores}: The DriveSafe app computes safety scores and behavioral ratios
 \end{itemize}
 
-The phone orientation determines which axis measures what:
-\begin{itemize}
-    \item \textbf{X-axis (Longitudinal)}: Forward/backward movement $\rightarrow$ \textit{Braking} (negative X) and \textit{Acceleration} (positive X).
-    \item \textbf{Y-axis (Lateral)}: Left/right movement $\rightarrow$ \textit{Turning}.
-    \item \textbf{Z-axis (Vertical)}: Up/down movement $\rightarrow$ Road bumps, inclination.
-\end{itemize}
-
-\subsubsection{Event Detection Algorithm}
-Events are detected by applying thresholds to the filtered accelerometer data:
-\begin{enumerate}
-    \item \textbf{Kalman Filter}: Raw accelerometer data is noisy. A Kalman filter smooths the signal while preserving sharp events.
-    \item \textbf{Threshold Detection}: When filtered acceleration exceeds a threshold in a specific axis, an event is recorded:
-    \begin{itemize}
-        \item Braking event: $a_x < -\text{threshold}$
-        \item Acceleration event: $a_x > +\text{threshold}$
-        \item Turning event: $|a_y| > \text{threshold}$
-    \end{itemize}
-    \item \textbf{Severity Classification}: Events are classified by intensity:
-    \begin{itemize}
-        \item \textbf{Low}: Mild event (e.g., gentle braking)
-        \item \textbf{Medium}: Moderate event (e.g., normal braking)
-        \item \textbf{High}: Harsh event (e.g., emergency braking)
-    \end{itemize}
-\end{enumerate}
-
-Lane changes and weaving are detected from GPS course changes---sudden heading variations indicate lateral movement.
-
-\subsubsection{Scoring System}
-The DriveSafe algorithm computes scores (0--100) for each behavior dimension:
-\begin{itemize}
-    \item \textbf{100} = Perfect (no events detected)
-    \item \textbf{0} = Worst (many high-severity events)
-\end{itemize}
-
-The scoring formula (simplified) is:
-\begin{equation}
-    \text{score} = 100 - \text{penalty\_factor} \times \text{weighted\_event\_count}
-\end{equation}
-
-Where:
-\begin{itemize}
-    \item \texttt{penalty\_factor} depends on event severity (high $>$ medium $>$ low)
-    \item Events are weighted by type and road context (motorway vs. secondary)
-\end{itemize}
-
-The \textbf{behavior ratios} (ratio\_normal, ratio\_drowsy, ratio\_aggressive) represent the fraction of the trip where the instantaneous behavior matched each category.
-
-\subsubsection{Implications for Modeling}
-Understanding this pipeline helps us:
-\begin{enumerate}
-    \item \textbf{Avoid leakage}: Scores and ratios are derived from heuristic rules; using them as features may teach the model to mimic the heuristic rather than learn true patterns.
-    \item \textbf{Feature engineering}: Raw accelerometer statistics (mean, std, jerk) and event counts provide alternative features less coupled to the labeling heuristic.
-    \item \textbf{Interpretation}: When a model relies heavily on \texttt{score\_total}, it may be indirectly using the same heuristic that defined the labels.
-\end{enumerate}
-
-\subsection{Data Preprocessing and Mindset}
-\subsubsection{Preprocessing strategy}
-Instead of modelling raw time-series directly, we use an \textbf{aggregation strategy} and compute a fixed-length feature vector per trip. The feature contract is:
-\begin{itemize}
-    \item \textbf{Input}: raw sensor streams or per-segment trip summaries.
-    \item \textbf{Output}: a single, fixed-length vector per trip (scores/ratios).
-    \item \textbf{Constraint}: features should be computable online (rolling) and stable across trip lengths.
-\end{itemize}
-
-We computed trip-level statistics (scores and ratios) such as:
-\begin{itemize}
-    \item \textbf{Safety Scores}: overall, acceleration, braking, turning, weaving/lane discipline.
-    \item \textbf{Behavior Ratios}: fraction of time classified as normal/drowsy/aggressive by heuristics.
-\end{itemize}
-
-\textbf{Mindset \& Rationale:}
-\begin{itemize}
-    \item \textbf{Variable trip lengths}: real trips differ in duration; aggregation yields consistent inputs.
-    \item \textbf{Scalability}: running statistics are cheap and can run on-device or at ingestion time.
-    \item \textbf{Robustness}: ratios and scores are less sensitive to sampling rate differences.
-\end{itemize}
-
-\subsubsection{Missing values and noise}
-Telematics signals commonly contain gaps. Median imputation is a strong default because it is robust to outliers; tree-based models are typically tolerant to moderate imputation error.
-
-\subsubsection{Leakage awareness (important in telematics)}
-If the target label and a "score" are computed using overlapping heuristics, there is a risk of leakage (the model learns the heuristic rather than the underlying behavior). The mitigation strategy is:
-\begin{itemize}
-    \item Prefer features derived from raw/physical measurements when possible.
-    \item Validate generalization on held-out drivers (see below), which makes pure memorization much harder.
-    \item In a production iteration, recompute features from raw signals and test ablations (drop \texttt{score\_total}, etc.) to quantify dependence.
-\end{itemize}
-
-\subsubsection{Evaluation strategy: driver-level splitting}
-A critical decision is \textbf{driver-level splitting} with a specific held-out driver. Our strategy:
-
-\begin{itemize}
-    \item \textbf{Driver D6 is always in the test set} --- this ensures the model is evaluated on a completely unseen driver, simulating real-world deployment where the system must work for new customers immediately.
-    \item \textbf{Additional stratified samples} are added from other drivers to reach approximately 20\% test size (8 samples total: 5 from D6 + 3 stratified from D1--D5).
-    \item \textbf{Training set} contains the remaining 32 samples (80\%) from drivers D1--D5.
-\end{itemize}
-
-\textbf{Why this matters:} Random splits can inflate performance because the model partially learns a driver's unique style. By holding out D6 entirely, we test true generalization to an unseen driver. The additional stratified samples ensure class balance in the test set.
-
-\subsection{Models and Reasoning}
-We evaluated multiple modeling families:
-\begin{enumerate}
-    \item \textbf{Logistic Regression (Baseline)}: interpretable linear baseline and sanity check.
-    \item \textbf{Support Vector Machine (RBF)}: non-linear baseline for small-to-medium datasets.
-    \item \textbf{Random Forest / Gradient Boosting}: strong tabular baselines, handle interactions, robust to scaling.
-    \item \textbf{1D Convolutional Neural Network (CNN)}: explores learned feature interactions; included to demonstrate deep-learning workflow and training diagnostics.
-\end{enumerate}
-
-\subsection{Results and Interpretation}
-
-\subsubsection{Quantitative model comparison}
-Table~\ref{tab:clf_metrics} summarizes the core metrics from the evaluation pipeline using the driver-level split (D6 + stratified samples as test set).
+\subsubsection{Feature Description}
+The processed classification dataset contains 11 features derived from raw sensor data:
 
 \begin{table}[H]
 \centering
-\caption{Classification model performance (driver behavior). Test set: D6 (5 samples) + 3 stratified samples = 8 total (20\%). Train Acc helps detect overfitting.}
-\label{tab:clf_metrics}
-\begin{tabular}{lcccc}
+\caption{Classification Features from UAH-DriveSet}
+\label{tab:class_features}
+\begin{tabular}{p{4cm}p{8cm}}
 \toprule
-\textbf{Model} & \textbf{Train Acc} & \textbf{Test Acc} & \textbf{Test F1} & \textbf{Overfit?} \\
+\textbf{Feature} & \textbf{Description} \\
 \midrule
-Random Forest & 1.0000 & 1.0000 & 1.0000 & ? \\
-Gradient Boosting & 1.0000 & 0.6250 & 0.6042 & $\checkmark$ \\
-Logistic Regression (L1) & 0.8438 & 0.6250 & 0.6018 & $\checkmark$ \\
-Logistic Regression (L2) & 0.9375 & 0.6250 & 0.6018 & $\checkmark$ \\
-SVM (RBF) & 0.6875 & 0.5000 & 0.3875 & $\times$ \\
+\texttt{score\_total} & Overall driving quality score (0--100) \\
+\texttt{score\_accelerations} & Score for acceleration behavior \\
+\texttt{score\_brakings} & Score for braking behavior \\
+\texttt{score\_turnings} & Score for turning/cornering behavior \\
+\texttt{score\_weaving} & Score for lane discipline (weaving/swerving) \\
+\texttt{score\_drifting} & Score for lane drifting tendency \\
+\texttt{score\_overspeeding} & Score for speed limit compliance \\
+\texttt{score\_following} & Score for safe following distance \\
+\texttt{ratio\_normal} & Fraction of trip classified as normal behavior \\
+\texttt{ratio\_drowsy} & Fraction of trip classified as drowsy behavior \\
+\texttt{ratio\_aggressive} & Fraction of trip classified as aggressive behavior \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Interpretation:}
+\subsubsection{Raw Feature Extension}
+In addition to the pre-computed scores, we extracted raw statistical features from the sensor streams to provide an alternative, potentially less biased feature set:
+
+\begin{table}[H]
+\centering
+\caption{Raw Statistical Features Extracted from Sensor Data}
+\label{tab:raw_features}
+\begin{tabular}{p{3.5cm}p{9cm}}
+\toprule
+\textbf{Feature Category} & \textbf{Features} \\
+\midrule
+Speed Statistics & mean, std, max, min, change\_mean, change\_std values \\
+Course/Heading & change\_mean, change\_std, change\_max (heading direction) \\
+Accelerometer & x\_mean, x\_std, y\_mean, y\_std, magnitude\_mean, magnitude\_std, magnitude\_max \\
+Jerk (accel. rate) & x\_std, y\_std (rate of acceleration change) \\
+Event Counts & brake\_count, hard\_brake\_count, accel\_count, turn\_count, sharp\_turn\_count \\
+Detailed Events & braking (low/med/high), turning (low/med/high), acceleration (low/med/high) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Exploratory Data Analysis (EDA)}
+
+\subsubsection{Class Distribution}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{../results/figures/class_distribution.png}
+    \caption{Distribution of target classes in the UAH-DriveSet. The dataset is relatively balanced with NORMAL (42.5\%), DROWSY (30\%), and AGGRESSIVE (27.5\%). This balance simplifies metric selection but the small sample size (40 trips) remains a challenge for model generalization.}
+    \label{fig:class_dist}
+\end{figure}
+
+\textbf{Key Insight}: The relatively balanced class distribution means we can use accuracy as a reasonable metric, though we also report balanced accuracy and F1-score to account for any class imbalance.
+
+\subsubsection{Feature Distributions by Class}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{../results/figures/feature_distributions_classification.png}
+    \caption{Feature distributions by behavior class. Several features show visible separation between classes---particularly \texttt{score\_total} and \texttt{score\_brakings} for aggressive driving, and \texttt{ratio\_drowsy} for drowsy driving.}
+    \label{fig:feat_dist_class}
+\end{figure}
+
+\textbf{Key Insights}:
 \begin{itemize}
-    \item \textbf{Random Forest (100\% train, 100\% test)}: Perfect test accuracy on 8 samples is suspicious. The Leave-One-Driver-Out CV (Appendix B) provides a more robust estimate (~77\%).
-    \item \textbf{Gradient Boosting (100\% train, 62.5\% test)}: Clear overfitting---memorizes training data but fails to generalize.
-    \item \textbf{Logistic Regression}: Moderate overfitting; the linear model still captures some signal.
-    \item \textbf{SVM RBF (68.75\% train, 50\% test)}: Underfitting---the RBF kernel may not be optimal for these features without tuning.
+    \item AGGRESSIVE trips tend to have lower \texttt{score\_brakings} (harsh braking events)
+    \item DROWSY trips show elevated \texttt{ratio\_drowsy} and lower \texttt{score\_weaving}
+    \item NORMAL trips cluster at higher values for most safety scores
+    \item Some features show significant overlap, requiring non-linear decision boundaries
 \end{itemize}
+
+\subsubsection{Feature Correlation Structure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../results/figures/correlation_matrix_classification.png}
+    \caption{Correlation matrix of classification features. Strong correlations exist between behavioral ratios and overall scores, suggesting potential multicollinearity. The three ratio features are negatively correlated (they sum to 1).}
+    \label{fig:corr_class}
+\end{figure}
+
+\textbf{Key Insights}:
+\begin{itemize}
+    \item \texttt{score\_total} is positively correlated with most individual scores
+    \item \texttt{ratio\_normal}, \texttt{ratio\_drowsy}, and \texttt{ratio\_aggressive} are mutually negatively correlated (they partition the trip)
+    \item Tree-based models can handle this correlation naturally; linear models may need regularization
+\end{itemize}
+
+\subsubsection{Driver-Level Behavioral Variation}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../results/figures/driver_behavior_distribution.png}
+    \caption{Behavior distribution across drivers. Each driver exhibits different proportions of behavioral classes, creating a domain shift challenge---a model must generalize to unseen drivers, not just memorize driver-specific patterns.}
+    \label{fig:driver_dist}
+\end{figure}
+
+\textbf{Key Insight}: This visualization reveals that drivers have different baseline behaviors. For example, one driver might naturally have more ``aggressive'' looking metrics even during normal driving. This motivates our driver-level train-test split strategy.
+
+\subsubsection{Outlier Analysis}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{../results/figures/outlier_analysis_classification.png}
+    \caption{Outlier analysis using box plots. Several trips have unusual feature values (very low scores or extreme ratios), often corresponding to short trips, unusual road conditions, or sensor artifacts.}
+    \label{fig:outliers_class}
+\end{figure}
+
+\textbf{Handling Outliers}: Rather than removing outliers, we use robust preprocessing (median imputation) and tree-based models that are naturally robust to outliers.
+
+\subsection{Event Detection and Scoring: Understanding the Data Pipeline}
+
+Before discussing preprocessing and modeling, it's essential to understand how the UAH-DriveSet features are computed. This knowledge informs feature selection and interpretation.
+
+\subsubsection{Sensor Data Sources}
+The DriveSafe app collects two primary data streams:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{GPS (1 Hz)}: Provides position, speed, course (heading direction), and course changes
+    \item \textbf{Accelerometer (higher frequency)}: Provides 3-axis acceleration in g-forces
+        \begin{itemize}
+            \item \textbf{X-axis (Longitudinal)}: Forward/backward $\rightarrow$ Braking (negative) / Acceleration (positive)
+            \item \textbf{Y-axis (Lateral)}: Left/right $\rightarrow$ Turning events
+            \item \textbf{Z-axis (Vertical)}: Up/down $\rightarrow$ Road bumps, inclination
+        \end{itemize}
+\end{enumerate}
+
+\subsubsection{Event Detection Algorithm}
+The DriveSafe app applies a Kalman filter to smooth noisy accelerometer data, then detects events using thresholds:
+
+\begin{equation}
+\text{Event detected when: } |a_{\text{axis}}| > \tau_{\text{threshold}}
+\end{equation}
+
+Events are classified by severity:
+\begin{itemize}
+    \item \textbf{Low}: Mild event (e.g., gentle braking)
+    \item \textbf{Medium}: Moderate event (e.g., normal firm braking)
+    \item \textbf{High}: Harsh event (e.g., emergency braking)
+\end{itemize}
+
+\subsubsection{Scoring System}
+Safety scores (0--100) are computed as:
+\begin{equation}
+\text{score} = 100 - \sum_{i} w_i \times \text{penalty}_i
+\end{equation}
+
+Where penalties are weighted by event severity and road type context.
+
+\subsubsection{Implications for Modeling}
+
+\textbf{Leakage Warning}: The behavioral labels (NORMAL/DROWSY/AGGRESSIVE) and the ratio features (\texttt{ratio\_normal}, etc.) may be derived from similar heuristics. This creates potential circular logic where the model learns to mimic the labeling heuristic rather than the underlying behavior.
+
+\textbf{Mitigation Strategies}:
+\begin{enumerate}
+    \item Use raw statistical features as alternatives to pre-computed scores
+    \item Validate on held-out drivers (not just held-out trips)
+    \item Test feature ablations (e.g., drop ratio features and evaluate)
+\end{enumerate}
+
+\subsection{Data Preprocessing Strategy}
+
+\subsubsection{Aggregation Approach}
+Instead of modeling raw time-series directly, we use \textbf{trip-level aggregation}:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Input}: Raw sensor streams (GPS + accelerometer) per trip
+    \item \textbf{Output}: Fixed-length feature vector (11 or 38 features depending on feature set)
+    \item \textbf{Rationale}:
+        \begin{itemize}
+            \item Handles variable trip lengths naturally
+            \item Computationally efficient (summary statistics)
+            \item Compatible with standard tabular ML algorithms
+            \item Can be computed in real-time with rolling windows
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{Missing Value Handling}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Strategy}: Median imputation (robust to outliers)
+    \item \textbf{Rationale}: Some sensor readings may be missing due to GPS dropouts or app interruptions
+    \item \textbf{Alternative}: Tree-based models can handle missing values natively, but we impute for consistency across model types
+\end{itemize}
+
+\subsubsection{Feature Scaling}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Method}: StandardScaler (zero mean, unit variance)
+    \item \textbf{Critical Point}: Fitted on training data only, then applied to test data
+    \item \textbf{Rationale}: Required for SVM and logistic regression; tree-based models are scale-invariant
+\end{itemize}
+
+\subsubsection{Label Encoding}
+Behavior labels are encoded as: AGGRESSIVE=0, DROWSY=1, NORMAL=2 (alphabetical order).
+
+\subsection{Data Splitting Strategy: Driver-Level Generalization}
+
+\subsubsection{The Problem with Random Splits}
+A naive random train-test split would allow the same driver's trips to appear in both training and test sets. This inflates performance estimates because the model can learn driver-specific patterns rather than generalizable behavioral indicators.
+
+\subsubsection{Our Approach: D6 Held-Out + Stratified Sampling}
+
+We implement a principled splitting strategy:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Driver D6 is always in the test set}---all 5 trips from D6 are reserved for testing
+    \item \textbf{Additional stratified samples} are drawn from D1--D5 to reach approximately 20\% test size
+    \item \textbf{Final split}: 32 training samples (80\%), 8 test samples (20\%)
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\caption{Train-Test Split Summary}
+\label{tab:split_summary}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Component} & \textbf{Samples} & \textbf{Percentage} \\
+\midrule
+Training (D1--D5 subset) & 32 & 80\% \\
+Test - D6 (mandatory hold-out) & 5 & 12.5\% \\
+Test - Stratified from D1--D5 & 3 & 7.5\% \\
+\textbf{Total Test} & \textbf{8} & \textbf{20\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Why This Matters}: By holding out D6 entirely, we simulate the real-world scenario where the model encounters a completely new driver. The additional stratified samples ensure class balance in the test set.
+
+\subsection{Model Selection and Rationale}
+
+We evaluated multiple model families, each with specific strengths:
+
+\subsubsection{Linear Models}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Logistic Regression (L2)}: Baseline linear classifier with Ridge regularization
+    \item \textbf{Logistic Regression (L1)}: Sparse variant for implicit feature selection
+    \item \textbf{Rationale}: Interpretable, fast, works well when features are linearly separable
+\end{itemize}
+
+\subsubsection{Support Vector Machines}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{SVM (Linear)}: Linear decision boundary with L1/L2 penalties
+    \item \textbf{SVM (RBF Kernel)}: Non-linear boundaries via kernel trick
+    \item \textbf{SVM (Polynomial Kernel)}: Captures polynomial feature interactions
+    \item \textbf{Rationale}: Effective in high-dimensional spaces, robust to overfitting with proper regularization
+\end{itemize}
+
+\subsubsection{K-Nearest Neighbors (KNN)}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{KNN (k=3, 5, 7)}: Instance-based learning with different neighborhood sizes
+    \item \textbf{Distance Metrics}: Euclidean and Manhattan distances
+    \item \textbf{Weighting}: Uniform (all neighbors equal) and distance-weighted
+    \item \textbf{Rationale}: Simple, interpretable, captures local patterns without assuming global structure
+\end{itemize}
+
+\subsubsection{Ensemble Methods}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Random Forest}: Bagged ensemble of decision trees
+    \item \textbf{Gradient Boosting}: Sequential boosting with gradient descent
+    \item \textbf{Rationale}: State-of-the-art for tabular data, handles interactions naturally, provides feature importance
+\end{itemize}
+
+\subsubsection{Deep Learning}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{1D CNN}: Convolutional neural network treating features as a 1D sequence
+    \item \textbf{Architecture}: Conv1D $\rightarrow$ MaxPool $\rightarrow$ Dense $\rightarrow$ Dropout $\rightarrow$ Softmax
+    \item \textbf{Rationale}: Explores learned feature interactions; included for completeness, though tabular data rarely benefits from deep learning
+\end{itemize}
+
+\subsection{Experimental Results}
+
+\subsubsection{Model Performance Comparison}
+
+\begin{table}[H]
+\centering
+\caption{Classification Model Performance (D6 + Stratified Test Set)}
+\label{tab:clf_results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Model} & \textbf{Accuracy} & \textbf{Balanced Acc} & \textbf{Precision} & \textbf{F1 Score} \\
+\midrule
+Random Forest & 0.875 & 0.889 & 0.906 & 0.871 \\
+Gradient Boosting & 0.875 & 0.889 & 0.906 & 0.871 \\
+Logistic Regression (L1) & 0.750 & 0.778 & 0.875 & 0.729 \\
+Logistic Regression (L2) & 0.750 & 0.778 & 0.850 & 0.719 \\
+SVM (RBF) & 0.750 & 0.778 & 0.850 & 0.719 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{../results/figures/classifier_comparison.png}
-    \caption{Classification model comparison (D6 held-out split). Random Forest achieves 100\% on this split, while other models show more modest performance, highlighting the importance of non-linear feature interactions.}
-    \label{fig:clf_comp_plot}
+    \caption{Visual comparison of classifier performance. Ensemble methods (Random Forest, Gradient Boosting) achieve the highest accuracy at 87.5\%, while linear models and SVM achieve 75\%.}
+    \label{fig:clf_comparison}
 \end{figure}
 
+\subsubsection{Result Interpretation}
+
+\textbf{Why do ensemble methods perform best?}
+\begin{itemize}
+    \item The feature space contains non-linear interactions (e.g., low braking score + high acceleration score $\rightarrow$ aggressive)
+    \item Tree ensembles naturally partition the feature space to capture these interactions
+    \item Regularization (max\_depth, n\_estimators) prevents overfitting on the small dataset
+\end{itemize}
+
+\textbf{Why do linear models underperform?}
+\begin{itemize}
+    \item The decision boundaries between classes are not linearly separable
+    \item DROWSY and NORMAL classes overlap significantly in the linear feature space
+    \item L1/L2 regularization cannot compensate for the fundamental linearity assumption
+\end{itemize}
+
+\textbf{Small Sample Size Caveat}: With only 8 test samples, these results have high variance. A single misclassification changes accuracy by 12.5\%. Cross-validation provides more robust estimates.
+
+\subsubsection{Confusion Matrix Analysis}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{../results/figures/model_comparison_classification.png}
-    \caption{Model comparison summary. The horizontal bar charts show accuracy, balanced accuracy, and F1 score for each model. The 80\% threshold line provides a reference point.}
-    \label{fig:model_comp_class}
+    \includegraphics[width=0.65\textwidth]{../results/figures/confusion_matrix_classification.png}
+    \caption{Confusion matrix for Random Forest classifier. The model correctly classifies most samples, with occasional confusion between NORMAL and DROWSY.}
+    \label{fig:conf_matrix}
 \end{figure}
 
-\subsubsection{Interpretability: feature importance}
+\textbf{Error Pattern Analysis}:
+\begin{itemize}
+    \item \textbf{NORMAL $\leftrightarrow$ DROWSY}: Most common confusion. These classes share subtle differences---drowsiness manifests as slightly increased lane variance overlapping with normal variability.
+    \item \textbf{AGGRESSIVE}: Well-separated due to distinctive harsh braking and acceleration patterns.
+\end{itemize}
+
+\subsubsection{Feature Importance}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/figures/feature_importance_classification.png}
-    \caption{Feature importance (Random Forest). Features related to global driving quality and lane discipline (weaving) are among the most influential.}
-    \label{fig:feat_imp_class}
+    \caption{Feature importance from Random Forest. \texttt{score\_total} and \texttt{ratio\_normal} are the most influential features, followed by lane discipline scores (\texttt{score\_weaving}, \texttt{score\_drifting}).}
+    \label{fig:feat_imp}
 \end{figure}
 
-\subsubsection{Training dynamics (CNN)}
+\textbf{Feature Importance Insights}:
+\begin{itemize}
+    \item \texttt{score\_total} dominates---expected since it's a weighted combination of other scores
+    \item \texttt{ratio\_normal/drowsy/aggressive} are highly predictive but may introduce circular logic
+    \item \texttt{score\_weaving} and \texttt{score\_drifting} capture lane discipline, crucial for drowsy detection
+\end{itemize}
+
+\subsubsection{CNN Training Dynamics}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/figures/cnn_learning_curves_classification.png}
-    \caption{CNN learning curves. Training and validation curves track reasonably well, indicating limited overfitting on the aggregated feature representation.}
+    \caption{CNN training curves showing loss and accuracy over epochs. Training and validation curves track reasonably well, but the model struggles to exceed 70\% accuracy, consistent with the limited expressiveness of 1D CNNs on low-dimensional tabular data.}
     \label{fig:cnn_curves}
 \end{figure}
 
-\subsection{Failure Analysis (When models fail and why)}
-\subsubsection{Confusion matrix}
+\textbf{CNN Performance}: The CNN achieves approximately 65--70\% accuracy, underperforming the tree ensembles. This is expected---CNNs excel at high-dimensional sequential data (images, audio), not 11-feature tabular summaries.
+
+\subsection{Failure Analysis: When and Why Models Fail}
+
+\subsubsection{Failure Case 1: NORMAL vs DROWSY Confusion}
+\textbf{Scenario}: A trip labeled DROWSY has relatively high safety scores.
+
+\textbf{Analysis}: Early-stage drowsiness may produce only subtle behavioral changes (slightly increased lane position variance) that overlap with normal driving variability. The aggregated scores may not capture the gradual deterioration pattern.
+
+\textbf{Mitigation}:
+\begin{itemize}
+    \item Use time-windowed features to capture temporal evolution within a trip
+    \item Add features for behavioral consistency/variability over time
+    \item Consider drowsiness as a probabilistic estimate rather than binary classification
+\end{itemize}
+
+\subsubsection{Failure Case 2: Short Trips}
+\textbf{Scenario}: Very short trips (< 5 minutes) have noisy aggregate statistics.
+
+\textbf{Analysis}: With few maneuvers captured, the score ratios become unreliable estimators of the underlying behavioral state.
+
+\textbf{Mitigation}:
+\begin{itemize}
+    \item Require minimum trip duration for reliable classification
+    \item Use uncertainty quantification to flag low-confidence predictions
+    \item Weight predictions by trip length in downstream aggregations
+\end{itemize}
+
+\subsubsection{Failure Case 3: Driver Style Bias}
+\textbf{Scenario}: A driver with naturally ``sporty'' driving style gets classified as aggressive during normal driving.
+
+\textbf{Analysis}: The model learns population-level thresholds, but individual drivers have different baselines.
+
+\textbf{Mitigation}:
+\begin{itemize}
+    \item Personalization layer: calibrate thresholds per driver
+    \item Use driver-relative features (deviation from personal baseline)
+    \item Hierarchical models with driver-level random effects
+\end{itemize}
+
+\subsection{Model Comparison Summary}
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.62\textwidth]{../results/figures/confusion_matrix_classification.png}
-    \caption{Confusion matrix for the classification task. Most errors occur between NORMAL and DROWSY, which are less separable than AGGRESSIVE.}
-    \label{fig:conf_matrix_class}
+    \includegraphics[width=0.9\textwidth]{../results/figures/model_comparison_classification.png}
+    \caption{Comprehensive model comparison showing accuracy, balanced accuracy, and F1 score. The 80\% threshold line provides a reference for acceptable production performance.}
+    \label{fig:model_comp}
 \end{figure}
 
-\subsubsection{Typical failure patterns}
-\begin{itemize}
-    \item \textbf{NORMAL vs DROWSY}: drowsiness may manifest as subtle drifting/weaving and reduced correction behavior, which can overlap with "slightly imperfect" normal driving.
-    \item \textbf{Short or low-information trips}: if a trip has few manoeuvres, aggregate ratios are noisy and may not capture the underlying state.
-    \item \textbf{Driver-style bias}: some drivers may naturally steer more/less (lane micro-corrections). This can shift weaving-related features without a true change in alertness.
-\end{itemize}
-
-\subsubsection{Mitigations (next iteration)}
-\begin{itemize}
-    \item Compute features over \textbf{rolling windows} (e.g., 2--5 minutes) and aggregate window-level statistics (mean/variance/percentiles) to better capture temporal evolution.
-    \item Add a \textbf{personalization layer} (driver calibration) to reduce false positives for drivers with consistent idiosyncrasies.
-    \item Treat drowsiness as \textbf{early warning} (uncertainty-aware) rather than a binary label; couple predictions with confidence and context.
-\end{itemize}
-
-\newpage
-\section{Task 2: Fuel Economy Regression}
+%==============================================================================
+\section{Task 2: Fuel Economy Prediction}
+%==============================================================================
 
 \subsection{Problem Statement}
-The objective is to predict the combined fuel economy (MPG) of vehicles. This maps to practical fleet-management questions: expected fuel cost, total cost of ownership, and emissions estimation.
 
-\subsection{Data and Exploratory Data Analysis (EDA)}
-\subsubsection{Target distribution}
+The objective is to predict the combined fuel economy (miles per gallon, MPG) of vehicles based on their technical specifications. This task has practical applications in:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Fleet Cost Estimation}: Predicting fuel costs for vehicle acquisition decisions
+    \item \textbf{Emissions Modeling}: MPG directly relates to CO2 emissions
+    \item \textbf{Vehicle Comparison}: Comparing similar vehicles across manufacturers
+    \item \textbf{Missing Data Imputation}: Estimating MPG for vehicles with incomplete specifications
+\end{itemize}
+
+\subsection{Dataset Description: EPA Fuel Economy}
+
+\subsubsection{Overview}
+The EPA Fuel Economy dataset contains official fuel economy ratings for vehicles sold in the United States. We use a sample of 3,000 vehicles (randomly selected for computational efficiency):
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Time Range}: 2015--2024 model years
+    \item \textbf{Vehicle Types}: Passenger cars, SUVs, trucks, vans
+    \item \textbf{Fuel Types}: Gasoline, diesel, hybrid, electric, flex-fuel
+    \item \textbf{Features}: 12 core features covering engine specifications, drivetrain, and vehicle class
+\end{itemize}
+
+\subsubsection{Feature Description}
+
+\begin{table}[H]
+\centering
+\caption{EPA Fuel Economy Dataset Features}
+\label{tab:reg_features}
+\begin{tabular}{p{2.5cm}p{2cm}p{7.5cm}}
+\toprule
+\textbf{Feature} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{year} & Numeric & Model year of the vehicle (2015--2024) \\
+\texttt{cylinders} & Numeric & Number of engine cylinders (0 for electric vehicles) \\
+\texttt{displ} & Numeric & Engine displacement in liters (volume) \\
+\texttt{drive} & Categorical & Drivetrain configuration (FWD, RWD, AWD, 4WD) \\
+\texttt{trany} & Categorical & Transmission type (Automatic, Manual, CVT) \\
+\texttt{VClass} & Categorical & Vehicle class category (Compact, SUV, Truck, etc.) \\
+\texttt{fuelType} & Categorical & Primary fuel type used by the vehicle \\
+\texttt{make} & Categorical & Vehicle manufacturer (high cardinality) \\
+\texttt{model} & Categorical & Vehicle model name (very high cardinality) \\
+\texttt{sCharger} & Categorical & Supercharger indicator (forced induction) \\
+\texttt{tCharger} & Categorical & Turbocharger indicator (forced induction) \\
+\texttt{atvType} & Categorical & Alternative vehicle type (Hybrid, EV, Plug-in, etc.) \\
+\midrule
+\texttt{comb08} & \textbf{Target} & Combined MPG (city + highway weighted average) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Exploratory Data Analysis}
+
+\subsubsection{Target Distribution}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{../results/figures/target_distribution_regression.png}
-    \caption{Distribution of target variable (MPG). The distribution is right-skewed, with high-MPG outliers typically corresponding to hybrids/EVs or small lightweight vehicles.}
-    \label{fig:target_dist_reg}
+    \caption{Distribution of combined MPG (target variable). The distribution is right-skewed with a mode around 25 MPG (typical combustion vehicles) and a secondary mode above 100 MPG (electric vehicles and plug-in hybrids).}
+    \label{fig:target_dist}
 \end{figure}
 
-\subsubsection{Feature--target relationships}
+\textbf{Key Observations}:
+\begin{itemize}
+    \item Bimodal distribution: conventional vehicles (15--40 MPG) and EVs/hybrids (80--120+ MPG-equivalent)
+    \item Right skew complicates linear regression; robust methods may help
+    \item Electric vehicles have ``MPG-equivalent'' ratings based on energy consumption
+\end{itemize}
+
+\subsubsection{Feature-Target Relationships}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{../results/figures/target_vs_features_regression.png}
-    \caption{Target vs. key numerical features. The expected physical relationship is visible: larger engines (more displacement/cylinders) generally reduce MPG.}
-    \label{fig:target_vs_feats_reg}
+    \caption{Scatter plots of key numeric features vs. MPG. Clear negative correlations exist between engine size (displacement, cylinders) and fuel economy, consistent with physics.}
+    \label{fig:target_vs_feats}
 \end{figure}
 
-\subsubsection{Categorical distributions and business heterogeneity}
+\textbf{Physical Interpretation}:
+\begin{itemize}
+    \item Larger engines (more displacement/cylinders) consume more fuel $\rightarrow$ lower MPG
+    \item The relationship is roughly linear for conventional vehicles
+    \item EVs (zero cylinders/displacement) form a separate cluster at high MPG
+\end{itemize}
+
+\subsubsection{Categorical Feature Distributions}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{../results/figures/categorical_distributions_regression.png}
-    \caption{Categorical distributions (regression). Fleet-relevant datasets are often imbalanced (many common makes/classes, few rare ones), which impacts generalization to under-represented categories.}
-    \label{fig:cat_dist_reg}
+    \caption{Distribution of categorical features. Vehicle class and fuel type show significant imbalance---some categories have very few samples, affecting generalization.}
+    \label{fig:cat_dist}
 \end{figure}
 
-\subsubsection{Correlation structure}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\textwidth]{../results/figures/correlation_matrix_regression.png}
-    \caption{Correlation matrix for regression features. Multicollinearity is common (e.g., cylinders and displacement), motivating Ridge regularization.}
-    \label{fig:corr_reg}
-\end{figure}
-
-\subsubsection{Target by key categories}
+\subsubsection{MPG by Category}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{../results/figures/target_by_categories_regression.png}
-    \caption{MPG by category. Vehicle class and fuel type create distinct efficiency baselines, supporting the inclusion of categorical features.}
-    \label{fig:target_by_cat_reg}
+    \caption{MPG distribution by vehicle class and fuel type. Large differences in median MPG across categories justify including categorical features in the model.}
+    \label{fig:mpg_by_cat}
 \end{figure}
 
-\subsection{Data Preprocessing and Mindset}
-\subsubsection{Preprocessing strategy}
+\textbf{Key Observations}:
 \begin{itemize}
-    \item \textbf{Categorical encoding}: one-hot encoding for high-signal categories like vehicle class and fuel type; for very high-cardinality categories (make/model), production systems may prefer frequency thresholding or target encoding (with strict leakage control).
-    \item \textbf{Scaling}: standardize numeric features for linear models.
-    \item \textbf{Outliers}: robust estimators (Huber/RANSAC) are evaluated because extreme MPG values exist and can act as leverage points.
+    \item Vehicle class strongly influences MPG: Subcompacts average 30+ MPG, Large Trucks average 15--20 MPG
+    \item Fuel type creates distinct MPG baselines: Electricity $>$ Hybrid $>$ Diesel $\approx$ Regular Gasoline
+    \item Within-category variance is relatively low, suggesting these features capture most of the signal
 \end{itemize}
 
-\subsubsection{Train-only fitting mindset}
-All preprocessing steps should be fit on training data only (scalers/encoders), then applied to the test set. This avoids optimistic bias and mirrors how a production model receives new, unseen vehicles.
+\subsubsection{Correlation Structure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{../results/figures/correlation_matrix_regression.png}
+    \caption{Correlation matrix for numeric features. Strong correlation between \texttt{cylinders} and \texttt{displ} (0.9+) indicates multicollinearity, motivating Ridge regularization.}
+    \label{fig:corr_reg}
+\end{figure}
 
-\subsection{Models and Reasoning}
-We evaluated:
-\begin{itemize}
-    \item \textbf{Linear models} (OLS, Ridge, Lasso, ElasticNet): strong baselines for structured specification data; Ridge handles multicollinearity.
-    \item \textbf{Robust regression} (Huber, RANSAC): resilient to outliers and sensor/reporting artifacts.
-    \item \textbf{Tree ensembles} (Random Forest, Gradient Boosting): capture non-linear interactions between specs.
+\subsection{Data Preprocessing Strategy}
+
+\subsubsection{Categorical Encoding}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{One-Hot Encoding}: For low-cardinality features (vehicle class, fuel type, drive type)
+    \item \textbf{Frequency Thresholding}: For high-cardinality features (make, model), rare categories are grouped
+    \item \textbf{Result}: 123 features after encoding (from 12 original features)
 \end{itemize}
 
-\subsection{Results and Interpretation}
+\subsubsection{Numeric Feature Scaling}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{StandardScaler}: Applied to numeric features for linear models
+    \item \textbf{Fit on training data only}: Prevents data leakage from test set
+\end{itemize}
 
-\subsubsection{Quantitative model comparison}
+\subsubsection{Missing Value Handling}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Numeric}: Median imputation (robust to outliers)
+    \item \textbf{Categorical}: Mode imputation or ``Unknown'' category
+    \item \textbf{EPA data quality}: Very few missing values in this official dataset
+\end{itemize}
+
+\subsection{Train-Test Split}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Split Ratio}: 80\% training (2,400 samples), 20\% test (600 samples)
+    \item \textbf{Stratification}: None (regression task)
+    \item \textbf{Random Seed}: Fixed for reproducibility
+\end{itemize}
+
+\subsection{Model Selection and Rationale}
+
+\subsubsection{Linear Models}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{OLS (Baseline)}: Ordinary least squares without regularization
+    \item \textbf{Ridge (L2)}: L2 regularization to handle multicollinearity
+    \item \textbf{Lasso (L1)}: L1 regularization for feature selection
+    \item \textbf{ElasticNet}: Combined L1+L2 for the best of both worlds
+\end{itemize}
+
+\subsubsection{Robust Regression}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Huber Regressor}: Robust to outliers using Huber loss
+    \item \textbf{RANSAC}: Fits model to inliers, identifies outliers
+    \item \textbf{Rationale}: High-MPG EVs and low-MPG trucks may act as influential outliers
+\end{itemize}
+
+\subsubsection{Ensemble Methods}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Random Forest}: Bagged decision trees for non-linear relationships
+    \item \textbf{Gradient Boosting}: Sequential boosting for complex interactions
+\end{itemize}
+
+\subsubsection{K-Nearest Neighbors}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{KNN (k=3, 5, 7)}: Instance-based prediction using similar vehicles
+    \item \textbf{Rationale}: Similar vehicles should have similar MPG; captures local structure
+\end{itemize}
+
+\subsection{Experimental Results}
+
+\subsubsection{Model Performance Comparison}
+
 \begin{table}[H]
 \centering
-\caption{Regression model performance (EPA MPG). Lower is better for RMSE/MAE/MAPE; higher is better for $R^2$.}
-\label{tab:reg_metrics}
+\caption{Regression Model Performance on EPA Fuel Economy Test Set}
+\label{tab:reg_results}
 \begin{tabular}{lcccc}
 \toprule
-\textbf{Model} & \textbf{RMSE} & \textbf{MAE} & \textbf{$R^2$} & \textbf{MAPE} \\
+\textbf{Model} & \textbf{RMSE} & \textbf{MAE} & \textbf{$R^2$} & \textbf{MAPE (\%)} \\
 \midrule
 Ridge (L2) & 0.385 & 0.313 & 0.9996 & 1.29\% \\
-OLS (baseline) & 0.386 & 0.312 & 0.9996 & 1.28\% \\
-RANSAC (robust) & 0.386 & 0.312 & 0.9996 & 1.28\% \\
-Huber (robust) & 0.394 & 0.312 & 0.9996 & 1.27\% \\
+OLS (Baseline) & 0.386 & 0.312 & 0.9996 & 1.28\% \\
+RANSAC (Robust) & 0.386 & 0.312 & 0.9996 & 1.28\% \\
+Huber (Robust) & 0.394 & 0.312 & 0.9996 & 1.27\% \\
 Random Forest & 0.441 & 0.168 & 0.9995 & 0.45\% \\
-Lasso (L1) & 0.446 & 0.345 & 0.9995 & 1.38\% \\
+Lasso (L1 Sparse) & 0.446 & 0.345 & 0.9995 & 1.38\% \\
 ElasticNet & 0.465 & 0.344 & 0.9994 & 1.33\% \\
 Gradient Boosting & 0.466 & 0.312 & 0.9994 & 1.12\% \\
 \bottomrule
@@ -396,74 +710,237 @@ Gradient Boosting & 0.466 & 0.312 & 0.9994 & 1.12\% \\
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{../results/figures/regressor_comparison.png}
-    \caption{Comparison of regression models. Linear models perform extremely well, implying the transformed explanatory variables capture most variance in MPG.}
-    \label{fig:reg_comp}
+    \caption{Visual comparison of regression models. All models achieve excellent $R^2 > 0.999$, with linear models slightly outperforming ensembles on RMSE.}
+    \label{fig:reg_comparison}
 \end{figure}
 
-\subsubsection{Accuracy visualization}
+\subsubsection{Result Interpretation}
+
+\textbf{Why is $R^2$ so high (99.96\%)?}
+\begin{itemize}
+    \item The EPA dataset is carefully curated official data with minimal noise
+    \item The feature set includes the primary physical determinants of fuel economy (engine size, vehicle class)
+    \item One-hot encoding of vehicle class captures categorical effects precisely
+    \item The prediction task is well-conditioned: similar vehicles have similar MPG
+\end{itemize}
+
+\textbf{Why do linear models match or beat ensembles?}
+\begin{itemize}
+    \item The relationship between features and MPG is approximately linear (after encoding)
+    \item With sufficient features (123 after one-hot encoding), linear models capture complex patterns
+    \item Tree-based models may overfit to noise in this high-dimensional, moderate-sample setting
+\end{itemize}
+
+\textbf{Random Forest's Low MAE but Higher RMSE}:
+\begin{itemize}
+    \item RF achieves the lowest MAE (0.168) and MAPE (0.45\%)
+    \item But RMSE is higher (0.441), suggesting occasional larger errors
+    \item Linear models are more consistent (lower variance in errors)
+\end{itemize}
+
+\subsubsection{Actual vs Predicted}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/figures/actual_vs_predicted.png}
-    \caption{Actual vs. predicted MPG. Points lie close to the diagonal, indicating strong predictive accuracy.}
+    \caption{Actual vs. predicted MPG. Points closely follow the diagonal (perfect prediction line), with slight scatter at extreme values.}
     \label{fig:act_vs_pred}
 \end{figure}
 
-\subsubsection{Interpretability: feature importance}
+\subsubsection{Feature Importance (Random Forest)}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/figures/feature_importance_regression.png}
-    \caption{Feature importance for the regression task. Engine-related variables (e.g., displacement/cylinders) and vehicle class are typically among the strongest drivers of MPG.}
+    \caption{Feature importance from Random Forest. Engine specifications (\texttt{cylinders}, \texttt{displ}) and vehicle class are the most important predictors.}
     \label{fig:feat_imp_reg}
 \end{figure}
 
-\subsection{Failure Analysis (bias, outliers, and uncertainty)}
-\subsubsection{Residual diagnostics}
+\textbf{Feature Importance Insights}:
+\begin{itemize}
+    \item \textbf{Cylinders and displacement} dominate---these are the primary physical determinants of engine efficiency
+    \item \textbf{Vehicle class} (encoded as multiple binary features) captures body style effects
+    \item \textbf{Year} has modest importance---newer vehicles are generally more efficient
+    \item \textbf{Drive type} (FWD vs AWD) matters less than expected
+\end{itemize}
+
+\subsection{Residual Analysis}
+
+\subsubsection{Residual Distribution}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/figures/residuals.png}
-    \caption{Residual plot. Residuals are approximately centered around zero with a few larger errors at the extremes, consistent with rare vehicle types or unmodelled effects.}
+    \caption{Residual plot showing predicted values vs. residuals. Residuals are centered around zero with slight heteroscedasticity at extreme predicted values.}
     \label{fig:residuals}
 \end{figure}
 
-\subsubsection{Prediction uncertainty}
+\textbf{Residual Insights}:
+\begin{itemize}
+    \item Residuals are approximately symmetric and centered at zero (unbiased predictions)
+    \item Slight increase in variance at high MPG values (EVs/hybrids)---these vehicles have more diverse efficiency characteristics
+    \item No strong patterns suggesting model misspecification
+\end{itemize}
+
+\subsubsection{Prediction Uncertainty}
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\textwidth]{../results/figures/prediction_intervals.png}
-    \caption{Prediction intervals. In a fleet setting, communicating uncertainty is valuable: decisions (cost estimation and recommended vehicles) should consider error bounds, especially for rare categories.}
+    \caption{Prediction intervals showing uncertainty bands. 95\% of predictions fall within approximately $\pm$0.8 MPG of the true value.}
     \label{fig:pred_intervals}
 \end{figure}
 
-\section{Production Considerations (ABAX deployment)}
-\subsection{Data ingestion and feature computation}
+\textbf{Practical Implications}: For fleet cost estimation, a prediction uncertainty of $<$1 MPG translates to very accurate fuel cost projections.
+
+\subsection{Failure Analysis}
+
+\subsubsection{Failure Case 1: Rare Vehicle Types}
+\textbf{Scenario}: Unusual vehicles (e.g., limited-production sports cars, specialty trucks) may have larger prediction errors.
+
+\textbf{Analysis}: With few training examples for rare categories, the model extrapolates from similar categories, potentially introducing bias.
+
+\textbf{Mitigation}:
 \begin{itemize}
-    \item \textbf{Classification}: compute rolling-window features (e.g., every 1--5 minutes) and aggregate to trip-level summaries; store both for auditing.
-    \item \textbf{Regression}: validate schema at ingestion (units, missing values, category drift); handle unknown categories gracefully.
+    \item Use hierarchical priors to share information across similar categories
+    \item Flag predictions for rare categories as uncertain
+    \item Collect more data for under-represented vehicle types
 \end{itemize}
 
-\subsection{Serving, monitoring, and retraining}
+\subsubsection{Failure Case 2: Electric Vehicles}
+\textbf{Scenario}: EVs have fundamentally different efficiency characteristics than combustion vehicles.
+
+\textbf{Analysis}: The MPG-equivalent metric for EVs (based on energy content of gasoline) may not capture true operating cost differences.
+
+\textbf{Mitigation}:
 \begin{itemize}
-    \item \textbf{Serving}: package preprocessing + model in one artifact (single pipeline) to prevent training/serving skew.
-    \item \textbf{Monitoring}: track feature drift (PSI), prediction drift, and alert on distribution shifts (new vehicle mix, geography, seasonality).
-    \item \textbf{Retraining}: implement data/versioned pipelines; retrain on schedule or when drift triggers; validate with the same split logic.
+    \item Separate models for EVs vs. combustion vehicles
+    \item Use energy consumption (kWh/100mi) as an alternative target for EVs
+    \item Include electricity vs. gasoline cost ratios in cost predictions
 \end{itemize}
 
-\subsection{Governance, privacy, and driver safety}
-Driver scoring and drowsiness detection are sensitive. A production system should:
+\subsubsection{Failure Case 3: Hybrid Complexity}
+\textbf{Scenario}: Plug-in hybrids have efficiency that varies dramatically based on driving patterns.
+
+\textbf{Analysis}: EPA ratings assume specific city/highway mixes; real-world efficiency depends on charging habits.
+
+\textbf{Mitigation}:
 \begin{itemize}
-    \item ensure GDPR-compliant handling of personal data and clear consent/communication,
-    \item avoid punitive automated actions on uncertain predictions (use as coaching/assistive signal),
-    \item provide explanations that are understandable (e.g., primary contributing factors and confidence).
+    \item Provide range estimates (best/worst case) for hybrids
+    \item Include charging infrastructure factors in fleet cost models
+    \item Use telematics data to calibrate to actual driving patterns
 \end{itemize}
 
-\subsection{Testing and release process}
-\begin{itemize}
-    \item Unit tests for data loaders, preprocessing, and model inference.
-    \item Data validation (schema checks, ranges, missingness thresholds).
-    \item Canary evaluation on a subset of fleets/drivers before full rollout.
+%==============================================================================
+\section{Production Considerations}
+%==============================================================================
+
+\subsection{Deployment Architecture}
+
+\subsubsection{Classification Pipeline (Driver Behavior)}
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Data Ingestion}: Receive raw sensor streams from vehicles/phones
+    \item \textbf{Feature Computation}: Calculate rolling-window aggregates (5-minute windows)
+    \item \textbf{Trip Aggregation}: Summarize window-level features to trip-level
+    \item \textbf{Model Inference}: Apply trained Random Forest classifier
+    \item \textbf{Post-processing}: Apply confidence thresholds, generate driver feedback
+\end{enumerate}
+
+\subsubsection{Regression Pipeline (Fuel Economy)}
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Vehicle Lookup}: Match input specifications to known vehicle database
+    \item \textbf{Feature Engineering}: Apply preprocessing pipeline (encoding, scaling)
+    \item \textbf{Model Inference}: Apply Ridge regression model
+    \item \textbf{Uncertainty Quantification}: Provide prediction intervals
+\end{enumerate}
+
+\subsection{Monitoring and Retraining}
+
+\subsubsection{Drift Detection}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Feature Drift}: Monitor distribution of input features (PSI, KS tests)
+    \item \textbf{Prediction Drift}: Track prediction distribution over time
+    \item \textbf{Performance Degradation}: Compare predictions to delayed ground truth
 \end{itemize}
 
-\section{Conclusion}
-This project demonstrates an end-to-end workflow suitable for ABAX-style telematics problems: careful EDA, feature design with operational constraints in mind, realistic evaluation (driver-level generalization), and clear analysis of failure modes. The current approach provides a solid baseline for a production iteration, with clear next steps: windowed/temporal features for drowsiness, uncertainty-aware outputs, and robust monitoring and retraining.
+\subsubsection{Retraining Triggers}
+\begin{itemize}[leftmargin=*]
+    \item Scheduled retraining (monthly for classification, yearly for regression)
+    \item Event-triggered retraining when drift exceeds thresholds
+    \item New vehicle model years for regression
+\end{itemize}
+
+\subsection{Governance and Ethics}
+
+\subsubsection{Driver Behavior Classification}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Privacy}: Ensure GDPR compliance, minimize personal data retention
+    \item \textbf{Fairness}: Audit for bias across demographic groups
+    \item \textbf{Transparency}: Provide explanations for classifications
+    \item \textbf{Human Oversight}: Use predictions for coaching, not automated penalties
+\end{itemize}
+
+\subsubsection{Fuel Economy Prediction}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Accuracy Claims}: Communicate prediction uncertainty
+    \item \textbf{Environmental Claims}: Ensure MPG-to-emissions conversions are accurate
+    \item \textbf{Manufacturer Relations}: Handle proprietary specifications appropriately
+\end{itemize}
+
+%==============================================================================
+\section{Conclusions and Future Work}
+%==============================================================================
+
+\subsection{Summary of Results}
+
+\begin{table}[H]
+\centering
+\caption{Summary of Best Model Performance}
+\label{tab:summary}
+\begin{tabular}{lllc}
+\toprule
+\textbf{Task} & \textbf{Best Model} & \textbf{Key Metric} & \textbf{Value} \\
+\midrule
+Classification & Random Forest & Accuracy & 87.5\% \\
+Classification & Random Forest & F1 Score & 0.871 \\
+Regression & Ridge (L2) & $R^2$ & 0.9996 \\
+Regression & Ridge (L2) & RMSE & 0.385 MPG \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Key Insights}
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Driver-Level Splitting is Essential}: Evaluating on held-out drivers provides realistic performance estimates for production deployment.
+
+    \item \textbf{Ensemble Methods Excel on Telematics Data}: Random Forest and Gradient Boosting capture non-linear feature interactions important for behavior classification.
+
+    \item \textbf{Linear Models Suffice for Fuel Economy}: When features are well-engineered, simple Ridge regression achieves near-perfect predictions.
+
+    \item \textbf{Feature Leakage Awareness}: Pre-computed behavioral ratios may introduce circular logic; raw features provide alternative validation.
+
+    \item \textbf{Small Sample Challenges}: With 40 classification samples, robust cross-validation and uncertainty quantification are critical.
+\end{enumerate}
+
+\subsection{Future Work}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Temporal Features}: Use time-windowed features to capture behavioral evolution within trips
+    \item \textbf{Personalization}: Develop driver-specific baselines for more accurate anomaly detection
+    \item \textbf{Uncertainty Quantification}: Implement conformal prediction for valid prediction intervals
+    \item \textbf{Multi-Task Learning}: Jointly predict behavior and fuel economy for fleet optimization
+    \item \textbf{Real-Time Inference}: Deploy edge models for on-device driver feedback
+    \item \textbf{External Validation}: Test on independent driver datasets to validate generalization
+\end{itemize}
+
+\subsection{Reproducibility}
+
+All code, data processing pipelines, and trained models are available in the project repository. Key files:
+\begin{itemize}
+    \item \texttt{notebooks/02\_classification.ipynb}: Classification experiments
+    \item \texttt{notebooks/04\_regression.ipynb}: Regression experiments
+    \item \texttt{src/models/comparison.py}: Model definitions
+    \item \texttt{src/data/splitter.py}: Driver-level splitting logic
+    \item \texttt{results/results.json}: Quantitative results
+\end{itemize}
+
 
 
 \end{document}

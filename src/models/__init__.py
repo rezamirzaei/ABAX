@@ -32,10 +32,12 @@ from src.models.robust_sparse import (
 
 # Optional: CNN models (requires PyTorch)
 try:
-    from src.models.cnn import CNNClassifier
+    from src.models.cnn import CNNClassifier, CNNClassifierRaw, plot_cnn_training_history
     _HAS_CNN = True
 except ImportError:
     CNNClassifier = None
+    CNNClassifierRaw = None
+    plot_cnn_training_history = None
     _HAS_CNN = False
 
 __all__ = [
@@ -67,5 +69,5 @@ __all__ = [
 ]
 
 if _HAS_CNN:
-    __all__.extend(["CNNClassifier"])
+    __all__.extend(["CNNClassifier", "CNNClassifierRaw", "plot_cnn_training_history"])
 
