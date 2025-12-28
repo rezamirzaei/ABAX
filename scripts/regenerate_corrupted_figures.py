@@ -94,11 +94,11 @@ ax.set_xlim(0, 1.1)
 # Add value labels
 for bar in bars1:
     width_val = bar.get_width()
-    ax.text(width_val + 0.02, bar.get_y() + bar.get_height()/2, f'{width_val:.3f}',
+    ax.text(width_val + 0.02, bar.get_y() + bar.get_height()/2, f'{width_val:.3f}', 
             ha='left', va='center', fontsize=9)
 for bar in bars2:
     width_val = bar.get_width()
-    ax.text(width_val + 0.02, bar.get_y() + bar.get_height()/2, f'{width_val:.3f}',
+    ax.text(width_val + 0.02, bar.get_y() + bar.get_height()/2, f'{width_val:.3f}', 
             ha='left', va='center', fontsize=9)
 
 ax.axvline(x=0.8, color='red', linestyle='--', alpha=0.5, label='80% threshold')
@@ -121,7 +121,7 @@ cm = confusion_matrix(y_test, y_pred)
 class_names = le.classes_
 
 fig, ax = plt.subplots(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names,
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, 
             yticklabels=class_names, ax=ax, cbar_kws={'label': 'Count'})
 ax.set_xlabel('Predicted Label', fontsize=12)
 ax.set_ylabel('True Label', fontsize=12)
@@ -152,7 +152,7 @@ ax.set_title('Feature Importance - Random Forest Classification', fontweight='bo
 # Add value labels
 for bar in bars:
     width = bar.get_width()
-    ax.text(width + 0.005, bar.get_y() + bar.get_height()/2, f'{width:.3f}',
+    ax.text(width + 0.005, bar.get_y() + bar.get_height()/2, f'{width:.3f}', 
             ha='left', va='center', fontsize=9)
 
 plt.tight_layout()
@@ -232,7 +232,7 @@ axes[0].set_xlim(0.99, 1.001)
 
 for bar in bars:
     width = bar.get_width()
-    axes[0].text(width - 0.002, bar.get_y() + bar.get_height()/2, f'{width:.4f}',
+    axes[0].text(width - 0.002, bar.get_y() + bar.get_height()/2, f'{width:.4f}', 
                  ha='right', va='center', fontsize=10, color='white', fontweight='bold')
 
 # RMSE plot
@@ -244,7 +244,7 @@ axes[1].set_title('Model Comparison - RMSE', fontweight='bold', fontsize=12)
 
 for bar in bars2:
     width = bar.get_width()
-    axes[1].text(width + 0.02, bar.get_y() + bar.get_height()/2, f'{width:.3f}',
+    axes[1].text(width + 0.02, bar.get_y() + bar.get_height()/2, f'{width:.3f}', 
                  ha='left', va='center', fontsize=10)
 
 plt.tight_layout()
@@ -277,7 +277,7 @@ ax.set_title('Feature Importance - Random Forest Regression (Top 15)', fontweigh
 
 for bar in bars:
     width = bar.get_width()
-    ax.text(width + 0.005, bar.get_y() + bar.get_height()/2, f'{width:.3f}',
+    ax.text(width + 0.005, bar.get_y() + bar.get_height()/2, f'{width:.3f}', 
             ha='left', va='center', fontsize=9)
 
 plt.tight_layout()
@@ -347,10 +347,10 @@ sample_size = min(100, len(y_actual_sorted))
 sample_idx = np.linspace(0, len(y_actual_sorted)-1, sample_size, dtype=int)
 
 x_range = np.arange(sample_size)
-ax.fill_between(x_range, lower_bound[sample_idx], upper_bound[sample_idx],
+ax.fill_between(x_range, lower_bound[sample_idx], upper_bound[sample_idx], 
                 alpha=0.3, color='#3498db', label='95% Prediction Interval')
 ax.plot(x_range, y_pred_sorted[sample_idx], 'b-', linewidth=2, label='Predicted')
-ax.scatter(x_range, y_actual_sorted[sample_idx], c='#e74c3c', s=20, zorder=5,
+ax.scatter(x_range, y_actual_sorted[sample_idx], c='#e74c3c', s=20, zorder=5, 
            label='Actual', edgecolors='black', linewidth=0.5)
 
 ax.set_xlabel('Sample Index (sorted by actual MPG)', fontsize=12)
@@ -361,7 +361,7 @@ ax.legend(loc='upper left')
 # Add metrics
 rmse = np.sqrt(mean_squared_error(y_test_reg, y_pred_ridge))
 r2 = r2_score(y_test_reg, y_pred_ridge)
-ax.text(0.98, 0.02, f'R² = {r2:.4f}\nRMSE = {rmse:.3f} MPG',
+ax.text(0.98, 0.02, f'R² = {r2:.4f}\nRMSE = {rmse:.3f} MPG', 
         transform=ax.transAxes, ha='right', va='bottom', fontsize=11,
         bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
@@ -381,4 +381,3 @@ print("  - Figure 16: regressor_comparison.png")
 print("  - Figure 18: feature_importance_regression.png")
 print("  - Figure 19: residuals.png")
 print("  - Figure 20: prediction_intervals.png")
-

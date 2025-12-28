@@ -147,20 +147,20 @@ def train_models(X_train, y_train, X_test, y_test):
 
     print(f"\n{'Model':<20} {'Train Acc':<12} {'Test Acc':<12} {'Test F1':<10} {'Overfit?':<10}")
     print("-" * 65)
-
+    
     for name, model in models.items():
         model.fit(X_train, y_train)
-
+        
         # Train accuracy
         y_pred_train = model.predict(X_train)
         train_acc = accuracy_score(y_train, y_pred_train)
-
+        
         # Test accuracy
         y_pred = model.predict(X_test)
         acc = accuracy_score(y_test, y_pred)
         bal_acc = balanced_accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred, average='weighted')
-
+        
         # Check overfitting
         gap = train_acc - acc
         overfit = "⚠️ YES" if gap > 0.2 else "✅ No"

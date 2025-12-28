@@ -118,14 +118,14 @@ ABAX/
 **Dataset:** UAH-DriveSet (40 trips, 6 drivers)  
 **Goal:** Predict NORMAL / DROWSY / AGGRESSIVE
 
-**Key Innovation:** Driver-level splitting where **D6 is always held out for testing** (never used in training), plus additional stratified samples to reach 20% test size.
+**Key Innovation:** Driver-level splitting ensures generalization to new drivers.
 
-| Split Strategy | Train | Test | Best Model (RF) |
-|----------------|-------|------|-----------------|
-| D6 + stratified (20%) | 32 samples | 8 samples | 100% accuracy |
-| Leave-One-Driver-Out CV | varies | varies | 77.6% ± 6.6% |
+| Evaluation | Accuracy | F1 (weighted) |
+|------------|----------|---------------|
+| Single split (D6 held out) | 0.875 | 0.871 |
+| Leave-One-Driver-Out CV | 0.776 ± 0.066 | 0.759 ± 0.070 |
 
-**Insight:** The perfect accuracy on a single split should be interpreted with caution given the small test size. The LODO-CV results (Appendix B) provide a more robust generalization estimate.
+**Insight:** The CV results show realistic performance with variance across drivers, motivating personalization in production.
 
 ### Task 2: Fuel Economy Prediction
 

@@ -55,11 +55,11 @@ def split_data(
 
 def split_by_driver(
     X: pd.DataFrame,
-    y,
+    y: pd.Series,
     test_drivers: Optional[List[str]] = None,
     test_size: float = 0.2,
     random_state: int = 42,
-) -> Tuple[pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray]:
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
     Split data by driver for better generalization testing.
 
@@ -74,7 +74,7 @@ def split_by_driver(
 
     Args:
         X: Features (must contain 'driver' column)
-        y: Target (can be numpy array or pandas Series)
+        y: Target
         test_drivers: Specific drivers to ALWAYS hold out (e.g., ['D6'])
         test_size: Target fraction for test set (will add stratified samples to reach this)
         random_state: Random seed
@@ -84,9 +84,6 @@ def split_by_driver(
     """
     if 'driver' not in X.columns:
         raise ValueError("X must contain 'driver' column for driver-level splitting")
-
-    # Convert y to numpy array if it's a pandas Series
-    y_arr = np.array(y) if not isinstance(y, np.ndarray) else y
 
     # Get unique drivers
     unique_drivers = X['driver'].unique()
@@ -100,8 +97,13 @@ def split_by_driver(
         test_drivers = np.random.choice(unique_drivers, size=n_test_drivers, replace=False)
 
     # Step 1: All specified test_driver samples go to test (NEVER in training)
-    mandatory_test_mask = X['driver'].isin(test_drivers).values
+    mandatory_test_mask = X['driver'].isin(test_drivers)
     mandatory_test_count = mandatory_test_mask.sum()
+
+    # Convert y to pandas Series if it's a numpy array (for consistent handling)
+    y_is_array = isinstance(y, np.ndarray)
+    if y_is_array:
+        y = pd.Series(y, index=X.index)
 
     # Step 2: Calculate how many additional samples needed to reach target
     additional_needed = max(0, target_test_samples - mandatory_test_count)
@@ -109,7 +111,7 @@ def split_by_driver(
     # Step 3: Get remaining samples (from non-test drivers)
     remaining_mask = ~mandatory_test_mask
     X_remaining = X[remaining_mask].copy()
-    y_remaining = y_arr[remaining_mask]
+    y_remaining = y[remaining_mask].copy()
 
     # Step 4: If we need additional samples, do stratified sampling from remaining
     if additional_needed > 0 and len(X_remaining) > additional_needed:
@@ -134,21 +136,26 @@ def split_by_driver(
 
         # Combine: Train = remaining train portion
         X_train = X_train_extra.copy()
-        y_train = np.array(y_train_extra)
+        y_train = y_train_extra.copy()
 
         # Combine: Test = mandatory test drivers + additional stratified samples
         X_test = pd.concat([X[mandatory_test_mask], X_test_extra])
-        y_test = np.concatenate([y_arr[mandatory_test_mask], np.array(y_test_extra)])
+        y_test = pd.concat([y[mandatory_test_mask], y_test_extra])
     else:
         # Just use mandatory test drivers
         X_train = X_remaining.copy()
         y_train = y_remaining.copy()
         X_test = X[mandatory_test_mask].copy()
-        y_test = y_arr[mandatory_test_mask].copy()
+        y_test = y[mandatory_test_mask].copy()
 
     # Remove driver column from features
     X_train = X_train.drop(columns=['driver'])
     X_test = X_test.drop(columns=['driver'])
+
+    # Convert y back to numpy array if it was originally an array
+    if y_is_array:
+        y_train = y_train.values
+        y_test = y_test.values
 
     train_drivers = sorted([d for d in unique_drivers if d not in test_drivers])
 
