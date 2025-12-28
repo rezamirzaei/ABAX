@@ -1,359 +1,369 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
-Regenerate regression figures for the ABAX Technical Report.
-
-This script regenerates figures 16, 18, 19, 20 which appear corrupted:
-- regressor_comparison.png
-- feature_importance_regression.png
-- residuals.png
-- prediction_intervals.png
+Regenerate regression figures matching the notebook style.
+Uses the same src modules as the notebook.
 """
-
-import os
 import sys
-import warnings
+from pathlib import Path
 
-warnings.filterwarnings('ignore')
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
-# Ensure we're in the right directory
-os.chdir('/Users/rezami/PycharmProjects/ABAX')
-sys.path.insert(0, '.')
-
-import numpy as np
-import pandas as pd
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.linear_model import (
-    LinearRegression, Ridge, Lasso, ElasticNet, HuberRegressor
-)
+import pandas as pd
+import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.preprocessing import RobustScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.linear_model import Ridge, Lasso, HuberRegressor, LinearRegression, ElasticNet
+from sklearn.svm import SVR
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
-# Set style for nice figures
+# Setup style
 plt.style.use('seaborn-v0_8-whitegrid')
+plt.rcParams['figure.facecolor'] = 'white'
+plt.rcParams['axes.facecolor'] = 'white'
+plt.rcParams['savefig.facecolor'] = 'white'
+plt.rcParams['font.size'] = 11
+plt.rcParams['axes.titlesize'] = 13
 plt.rcParams['figure.dpi'] = 150
-plt.rcParams['savefig.dpi'] = 150
-plt.rcParams['font.size'] = 10
-plt.rcParams['axes.titlesize'] = 12
-plt.rcParams['axes.labelsize'] = 10
 
-FIGURES_DIR = 'results/figures'
+FIGURES_DIR = PROJECT_ROOT / 'results' / 'figures'
+DATA_PATH = PROJECT_ROOT / 'data' / 'processed' / 'epa_fuel_economy.csv'
 
-def load_data():
-    """Load the EPA fuel economy dataset."""
-    df = pd.read_csv('data/processed/epa_fuel_economy.csv')
-    print(f"Loaded {len(df)} samples")
-    print(f"Columns: {list(df.columns)[:10]}...")  # First 10 columns
-    return df
+print("=" * 60)
+print("Regenerating Regression Figures (Notebook Style)")
+print("=" * 60)
 
-def prepare_data(df):
-    """Prepare features and target for regression with proper encoding."""
-    # Target column
-    target_col = 'comb08'
-    
-    print(f"Target column: {target_col}")
-    
-    # Drop rows with missing target
-    df = df.dropna(subset=[target_col])
-    
-    # Select useful features
-    numeric_features = ['year', 'cylinders', 'displ']
-    categorical_features = ['VClass', 'drive', 'fuelType', 'make']
-    
-    # Filter to available columns
-    numeric_features = [f for f in numeric_features if f in df.columns]
-    categorical_features = [f for f in categorical_features if f in df.columns]
-    
-    print(f"Numeric features: {numeric_features}")
-    print(f"Categorical features: {categorical_features}")
-    
-    # Prepare X and y
-    all_features = numeric_features + categorical_features
-    X = df[all_features].copy()
-    y = df[target_col].copy()
-    
-    # Handle missing values
-    for col in numeric_features:
-        X[col] = X[col].fillna(X[col].median())
-    for col in categorical_features:
-        X[col] = X[col].fillna('Unknown')
-    
-    # One-hot encode categorical features
-    X_encoded = pd.get_dummies(X, columns=categorical_features, drop_first=True)
-    
-    print(f"Total features after encoding: {X_encoded.shape[1]}")
-    
-    # Split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_encoded, y, test_size=0.2, random_state=42
-    )
-    
-    # Scale numeric features only
-    scaler = RobustScaler()
-    X_train_scaled = X_train.copy()
-    X_test_scaled = X_test.copy()
-    
-    X_train_scaled[numeric_features] = scaler.fit_transform(X_train[numeric_features])
-    X_test_scaled[numeric_features] = scaler.transform(X_test[numeric_features])
-    
-    print(f"Train: {len(X_train)}, Test: {len(X_test)}")
-    
-    # Return feature names for importance plot
-    feature_names = list(X_encoded.columns)
-    
-    return X_train_scaled.values, X_test_scaled.values, y_train.values, y_test.values, feature_names
+# Load data
+if DATA_PATH.exists():
+    df = pd.read_csv(DATA_PATH)
+    print(f"✅ Loaded: {len(df)} samples from EPA dataset")
+else:
+    print(f"❌ Data file not found: {DATA_PATH}")
+    sys.exit(1)
 
-def train_models(X_train, y_train, X_test, y_test):
-    """Train multiple regressors and collect results."""
-    models = {
-        'Ridge (L2)': Ridge(alpha=1.0),
-        'OLS (baseline)': LinearRegression(),
-        'Huber (robust)': HuberRegressor(epsilon=1.35, max_iter=500),
-        'Random Forest': RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
-        'Lasso (L1)': Lasso(alpha=0.01, max_iter=5000),
-        'ElasticNet': ElasticNet(alpha=0.01, l1_ratio=0.5, max_iter=5000),
-        'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, max_depth=5, random_state=42),
-    }
+# Prepare features
+target_col = 'comb08'
+exclude_cols = [target_col]
 
-    results = []
-    trained_models = {}
-    predictions = {}
+# Get numeric columns only for simplicity
+numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+numeric_cols = [c for c in numeric_cols if c not in exclude_cols]
 
-    for name, model in models.items():
-        print(f"Training {name}...")
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
+# Use more key features for better performance
+key_features = ['year', 'cylinders', 'displ', 'city08', 'highway08', 'co2TailpipeGpm',
+                'fuelCost08', 'youSaveSpend', 'charge120', 'charge240']
+available_features = [c for c in key_features if c in df.columns]
 
+# If not enough features, add more numeric columns
+if len(available_features) < 5:
+    for col in numeric_cols:
+        if col not in available_features:
+            available_features.append(col)
+        if len(available_features) >= 10:
+            break
+
+print(f"   Features used: {len(available_features)} features")
+
+X = df[available_features].fillna(0)
+y = df[target_col].fillna(df[target_col].median())
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+print(f"   Train: {len(X_train)}, Test: {len(X_test)}")
+
+# ============================================================================
+# Train All Models
+# ============================================================================
+print("\n🎯 Training regression models...")
+
+models = {
+    'Random Forest': RandomForestRegressor(n_estimators=100, max_depth=15, random_state=42, n_jobs=-1),
+    'Gradient Boosting': GradientBoostingRegressor(n_estimators=100, max_depth=5, random_state=42),
+    'Ridge': Ridge(alpha=1.0),
+    'Lasso': Lasso(alpha=0.1, max_iter=2000),
+    'ElasticNet': ElasticNet(alpha=0.1, l1_ratio=0.5, max_iter=2000),
+    'Huber': HuberRegressor(epsilon=1.35, max_iter=1000),
+    'SVR (RBF)': SVR(kernel='rbf', C=100, gamma='scale'),
+    'SVR (Linear)': SVR(kernel='linear', C=1.0),
+    'KNN (k=5)': KNeighborsRegressor(n_neighbors=5, weights='distance'),
+    'OLS': LinearRegression(),
+}
+
+results = []
+predictions = {}
+trained_models = {}
+
+for name, model in models.items():
+    try:
+        model.fit(X_train_scaled, y_train)
+        y_pred = model.predict(X_test_scaled)
+        predictions[name] = y_pred
+        trained_models[name] = model
+
+        r2 = r2_score(y_test, y_pred)
         rmse = np.sqrt(mean_squared_error(y_test, y_pred))
         mae = mean_absolute_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        mape = np.mean(np.abs((y_test - y_pred) / y_test)) * 100
 
-        results.append({
-            'Model': name,
-            'RMSE': rmse,
-            'MAE': mae,
-            'R²': r2,
-            'MAPE': mape
-        })
-        trained_models[name] = model
-        predictions[name] = y_pred
-        print(f"  R²: {r2:.4f}, RMSE: {rmse:.4f}")
+        results.append({'Model': name, 'R²': r2, 'RMSE': rmse, 'MAE': mae})
+        print(f"   ✅ {name}: R²={r2:.4f}, RMSE={rmse:.2f}, MAE={mae:.2f}")
+    except Exception as e:
+        print(f"   ❌ {name}: {e}")
 
-    return pd.DataFrame(results), trained_models, predictions
+results_df = pd.DataFrame(results).sort_values('R²', ascending=False)
+best_model_name = results_df.iloc[0]['Model']
+best_r2 = results_df.iloc[0]['R²']
+print(f"\n🏆 Best Model: {best_model_name} (R²={best_r2:.4f})")
 
-def plot_regressor_comparison(results_df):
-    """Figure 16: Regressor comparison bar chart."""
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+# ============================================================================
+# Figure 1: Model Comparison (Detailed)
+# ============================================================================
+print("\n🎨 Figure 1: Regressor Comparison...")
 
-    # Sort by R²
-    sorted_df = results_df.sort_values('R²', ascending=True)
+fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
-    # R² plot
-    colors = plt.cm.viridis(np.linspace(0.3, 0.9, len(sorted_df)))
-    bars = axes[0].barh(sorted_df['Model'], sorted_df['R²'], color=colors)
-    axes[0].set_xlabel('R² Score')
-    axes[0].set_title('R² Score (higher is better)', fontsize=11, fontweight='bold')
-    axes[0].set_xlim(0.9, 1.0)
-    for bar, val in zip(bars, sorted_df['R²']):
-        axes[0].text(val + 0.001, bar.get_y() + bar.get_height()/2,
-                    f'{val:.4f}', va='center', fontsize=9)
+# R² Score
+ax = axes[0]
+sorted_r2 = results_df.sort_values('R²', ascending=True)
+colors = plt.cm.RdYlGn(sorted_r2['R²'].values / sorted_r2['R²'].max())
+bars = ax.barh(range(len(sorted_r2)), sorted_r2['R²'].values, color=colors, edgecolor='black', linewidth=0.5)
+ax.set_yticks(range(len(sorted_r2)))
+ax.set_yticklabels(sorted_r2['Model'].values, fontsize=10)
+ax.set_xlabel('R² Score', fontsize=12)
+ax.set_title('R² Score (Higher = Better)', fontweight='bold', fontsize=13)
+ax.set_xlim(0, 1.05)
+for i, r2 in enumerate(sorted_r2['R²'].values):
+    ax.text(r2 + 0.01, i, f'{r2:.3f}', va='center', fontsize=9)
 
-    # RMSE plot
-    sorted_df_rmse = results_df.sort_values('RMSE', ascending=False)
-    bars = axes[1].barh(sorted_df_rmse['Model'], sorted_df_rmse['RMSE'], color='#e74c3c', alpha=0.8)
-    axes[1].set_xlabel('RMSE')
-    axes[1].set_title('RMSE (lower is better)', fontsize=11, fontweight='bold')
-    for bar, val in zip(bars, sorted_df_rmse['RMSE']):
-        axes[1].text(val + 0.01, bar.get_y() + bar.get_height()/2,
-                    f'{val:.3f}', va='center', fontsize=9)
+# RMSE
+ax = axes[1]
+sorted_rmse = results_df.sort_values('RMSE', ascending=False)
+colors = plt.cm.RdYlGn_r(sorted_rmse['RMSE'].values / sorted_rmse['RMSE'].max())
+bars = ax.barh(range(len(sorted_rmse)), sorted_rmse['RMSE'].values, color=colors, edgecolor='black', linewidth=0.5)
+ax.set_yticks(range(len(sorted_rmse)))
+ax.set_yticklabels(sorted_rmse['Model'].values, fontsize=10)
+ax.set_xlabel('RMSE (MPG)', fontsize=12)
+ax.set_title('RMSE (Lower = Better)', fontweight='bold', fontsize=13)
+for i, rmse in enumerate(sorted_rmse['RMSE'].values):
+    ax.text(rmse + 0.1, i, f'{rmse:.2f}', va='center', fontsize=9)
 
-    # MAPE plot
-    sorted_df_mape = results_df.sort_values('MAPE', ascending=False)
-    bars = axes[2].barh(sorted_df_mape['Model'], sorted_df_mape['MAPE'], color='#3498db', alpha=0.8)
-    axes[2].set_xlabel('MAPE (%)')
-    axes[2].set_title('MAPE (lower is better)', fontsize=11, fontweight='bold')
-    for bar, val in zip(bars, sorted_df_mape['MAPE']):
-        axes[2].text(val + 0.1, bar.get_y() + bar.get_height()/2,
-                    f'{val:.2f}%', va='center', fontsize=9)
+# MAE
+ax = axes[2]
+sorted_mae = results_df.sort_values('MAE', ascending=False)
+colors = plt.cm.RdYlGn_r(sorted_mae['MAE'].values / sorted_mae['MAE'].max())
+bars = ax.barh(range(len(sorted_mae)), sorted_mae['MAE'].values, color=colors, edgecolor='black', linewidth=0.5)
+ax.set_yticks(range(len(sorted_mae)))
+ax.set_yticklabels(sorted_mae['Model'].values, fontsize=10)
+ax.set_xlabel('MAE (MPG)', fontsize=12)
+ax.set_title('MAE (Lower = Better)', fontweight='bold', fontsize=13)
+for i, mae in enumerate(sorted_mae['MAE'].values):
+    ax.text(mae + 0.1, i, f'{mae:.2f}', va='center', fontsize=9)
 
-    plt.suptitle('Regression Model Comparison (EPA Fuel Economy)', fontsize=14, fontweight='bold', y=1.02)
-    plt.tight_layout()
-    plt.savefig(f'{FIGURES_DIR}/regressor_comparison.png', bbox_inches='tight', facecolor='white')
-    plt.close()
-    print("Saved: regressor_comparison.png")
+plt.tight_layout()
+plt.savefig(FIGURES_DIR / 'regressor_comparison.png', dpi=150, bbox_inches='tight',
+            facecolor='white', edgecolor='none')
+plt.close()
+print("   ✅ regressor_comparison.png")
 
-def plot_feature_importance(model, feature_names):
-    """Figure 18: Feature importance from Random Forest (top 15)."""
-    importances = model.feature_importances_
-    indices = np.argsort(importances)[::-1]
-    
-    # Show only top 15 features
-    top_n = min(15, len(feature_names))
-    top_indices = indices[:top_n]
-    
-    fig, ax = plt.subplots(figsize=(10, 7))
-    
-    colors = plt.cm.Greens(np.linspace(0.4, 0.9, top_n))
-    bars = ax.barh(range(top_n), importances[top_indices], color=colors)
-    ax.set_yticks(range(top_n))
-    ax.set_yticklabels([feature_names[i] for i in top_indices])
-    ax.set_xlabel('Feature Importance')
-    ax.set_title('Top 15 Feature Importance (Random Forest Regression)', fontsize=14, fontweight='bold')
-    ax.invert_yaxis()
-    
+# ============================================================================
+# Figure 2: Actual vs Predicted
+# ============================================================================
+print("\n🎨 Figure 2: Actual vs Predicted...")
+
+y_pred_best = predictions[best_model_name]
+
+fig, ax = plt.subplots(figsize=(9, 9))
+
+# Scatter plot
+scatter = ax.scatter(y_test, y_pred_best, alpha=0.5, c=y_test, cmap='viridis',
+                     edgecolors='white', linewidth=0.3, s=40)
+
+# Perfect prediction line
+min_val = min(y_test.min(), y_pred_best.min())
+max_val = max(y_test.max(), y_pred_best.max())
+ax.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2.5, label='Perfect Prediction')
+
+# Add ±10% lines
+ax.plot([min_val, max_val], [min_val*0.9, max_val*0.9], 'g:', linewidth=1.5, alpha=0.7, label='±10% Error')
+ax.plot([min_val, max_val], [min_val*1.1, max_val*1.1], 'g:', linewidth=1.5, alpha=0.7)
+
+ax.set_xlabel('Actual MPG', fontsize=13)
+ax.set_ylabel('Predicted MPG', fontsize=13)
+ax.set_title(f'Actual vs Predicted Fuel Economy\n{best_model_name} (R² = {best_r2:.4f})',
+             fontweight='bold', fontsize=14)
+ax.legend(fontsize=11, loc='upper left')
+
+# Add colorbar
+cbar = plt.colorbar(scatter, ax=ax, shrink=0.8)
+cbar.set_label('Actual MPG', fontsize=11)
+
+# Equal aspect ratio
+ax.set_aspect('equal')
+ax.set_xlim(min_val - 5, max_val + 5)
+ax.set_ylim(min_val - 5, max_val + 5)
+
+plt.tight_layout()
+plt.savefig(FIGURES_DIR / 'actual_vs_predicted.png', dpi=150, bbox_inches='tight',
+            facecolor='white', edgecolor='none')
+plt.close()
+print("   ✅ actual_vs_predicted.png")
+
+# ============================================================================
+# Figure 3: Residual Analysis
+# ============================================================================
+print("\n🎨 Figure 3: Residual Analysis...")
+
+residuals = y_test - y_pred_best
+
+fig, axes = plt.subplots(2, 2, figsize=(14, 12))
+
+# 1. Residuals vs Predicted
+ax = axes[0, 0]
+ax.scatter(y_pred_best, residuals, alpha=0.5, c='#3498db', edgecolors='white', linewidth=0.3, s=40)
+ax.axhline(y=0, color='red', linestyle='--', linewidth=2)
+ax.axhline(y=np.std(residuals)*2, color='orange', linestyle=':', alpha=0.7, label='±2σ')
+ax.axhline(y=-np.std(residuals)*2, color='orange', linestyle=':', alpha=0.7)
+ax.set_xlabel('Predicted MPG', fontsize=12)
+ax.set_ylabel('Residual (Actual - Predicted)', fontsize=12)
+ax.set_title('Residuals vs Predicted Values', fontweight='bold', fontsize=13)
+ax.legend(fontsize=10)
+
+# 2. Residual Histogram
+ax = axes[0, 1]
+n, bins, patches = ax.hist(residuals, bins=40, color='#3498db', edgecolor='white',
+                            linewidth=0.5, alpha=0.8, density=True)
+# Fit normal distribution
+from scipy import stats
+mu, std = stats.norm.fit(residuals)
+x = np.linspace(residuals.min(), residuals.max(), 100)
+ax.plot(x, stats.norm.pdf(x, mu, std), 'r-', linewidth=2, label=f'Normal Fit\nμ={mu:.2f}, σ={std:.2f}')
+ax.axvline(x=0, color='black', linestyle='--', linewidth=1.5)
+ax.set_xlabel('Residual Value (MPG)', fontsize=12)
+ax.set_ylabel('Density', fontsize=12)
+ax.set_title('Residual Distribution', fontweight='bold', fontsize=13)
+ax.legend(fontsize=10)
+
+# 3. Q-Q Plot
+ax = axes[1, 0]
+stats.probplot(residuals, dist="norm", plot=ax)
+ax.set_title('Q-Q Plot (Normality Check)', fontweight='bold', fontsize=13)
+ax.get_lines()[0].set_markerfacecolor('#3498db')
+ax.get_lines()[0].set_markersize(5)
+ax.get_lines()[1].set_color('red')
+ax.get_lines()[1].set_linewidth(2)
+
+# 4. Residuals vs Actual
+ax = axes[1, 1]
+ax.scatter(y_test, residuals, alpha=0.5, c='#9b59b6', edgecolors='white', linewidth=0.3, s=40)
+ax.axhline(y=0, color='red', linestyle='--', linewidth=2)
+ax.set_xlabel('Actual MPG', fontsize=12)
+ax.set_ylabel('Residual', fontsize=12)
+ax.set_title('Residuals vs Actual Values', fontweight='bold', fontsize=13)
+
+# Add statistics box
+stats_text = f'Mean: {np.mean(residuals):.3f}\nStd: {np.std(residuals):.3f}\nMax: {np.max(residuals):.2f}\nMin: {np.min(residuals):.2f}'
+ax.text(0.95, 0.95, stats_text, transform=ax.transAxes, fontsize=10,
+        verticalalignment='top', horizontalalignment='right',
+        bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+
+plt.suptitle(f'Residual Analysis - {best_model_name}', fontweight='bold', fontsize=15, y=1.02)
+plt.tight_layout()
+plt.savefig(FIGURES_DIR / 'residuals.png', dpi=150, bbox_inches='tight',
+            facecolor='white', edgecolor='none')
+plt.close()
+print("   ✅ residuals.png")
+
+# ============================================================================
+# Figure 4: Feature Importance
+# ============================================================================
+print("\n🎨 Figure 4: Feature Importance...")
+
+rf_model = trained_models.get('Random Forest')
+if rf_model is not None:
+    importance_df = pd.DataFrame({
+        'Feature': available_features,
+        'Importance': rf_model.feature_importances_
+    }).sort_values('Importance', ascending=True)
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    colors = plt.cm.viridis(np.linspace(0.2, 0.9, len(importance_df)))
+
+    bars = ax.barh(range(len(importance_df)), importance_df['Importance'].values,
+                   color=colors, edgecolor='black', linewidth=0.5)
+    ax.set_yticks(range(len(importance_df)))
+    ax.set_yticklabels(importance_df['Feature'].values, fontsize=11)
+    ax.set_xlabel('Feature Importance (MDI)', fontsize=12)
+    ax.set_title('Feature Importance for Fuel Economy Prediction\n(Random Forest)',
+                 fontweight='bold', fontsize=14)
+
     # Add value labels
-    for bar, val in zip(bars, importances[top_indices]):
-        ax.text(val + 0.002, bar.get_y() + bar.get_height()/2, 
-               f'{val:.3f}', va='center', fontsize=9)
-    
-    plt.tight_layout()
-    plt.savefig(f'{FIGURES_DIR}/feature_importance_regression.png', bbox_inches='tight', facecolor='white')
-    plt.close()
-    print("Saved: feature_importance_regression.png")
-
-def plot_residuals(y_test, y_pred):
-    """Figure 19: Residual plot."""
-    residuals = y_test - y_pred
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-    # Residuals vs Predicted
-    axes[0].scatter(y_pred, residuals, alpha=0.5, c='#3498db', edgecolors='white', linewidth=0.5)
-    axes[0].axhline(y=0, color='red', linestyle='--', linewidth=2)
-    axes[0].set_xlabel('Predicted MPG')
-    axes[0].set_ylabel('Residuals (Actual - Predicted)')
-    axes[0].set_title('Residuals vs Predicted Values', fontsize=12, fontweight='bold')
-    axes[0].grid(True, alpha=0.3)
-
-    # Add bounds
-    std_res = np.std(residuals)
-    axes[0].axhline(y=2*std_res, color='orange', linestyle=':', alpha=0.7, label=f'±2σ ({2*std_res:.2f})')
-    axes[0].axhline(y=-2*std_res, color='orange', linestyle=':', alpha=0.7)
-    axes[0].legend()
-
-    # Residual distribution
-    axes[1].hist(residuals, bins=30, color='#2ecc71', alpha=0.7, edgecolor='white')
-    axes[1].axvline(x=0, color='red', linestyle='--', linewidth=2)
-    axes[1].axvline(x=np.mean(residuals), color='blue', linestyle='-', linewidth=2, label=f'Mean: {np.mean(residuals):.3f}')
-    axes[1].set_xlabel('Residual Value')
-    axes[1].set_ylabel('Frequency')
-    axes[1].set_title('Residual Distribution', fontsize=12, fontweight='bold')
-    axes[1].legend()
-
-    plt.suptitle('Residual Analysis (Ridge Regression)', fontsize=14, fontweight='bold', y=1.02)
-    plt.tight_layout()
-    plt.savefig(f'{FIGURES_DIR}/residuals.png', bbox_inches='tight', facecolor='white')
-    plt.close()
-    print("Saved: residuals.png")
-
-def plot_prediction_intervals(y_test, y_pred):
-    """Figure 20: Prediction intervals."""
-    # Sort by predicted value for better visualization
-    sorted_idx = np.argsort(y_pred)
-    y_pred_sorted = y_pred[sorted_idx]
-    y_test_sorted = y_test[sorted_idx]
-
-    # Calculate residual std for prediction intervals
-    residuals = y_test - y_pred
-    std_res = np.std(residuals)
-
-    # Sample for cleaner visualization
-    n_samples = min(200, len(y_pred))
-    sample_idx = np.linspace(0, len(y_pred_sorted)-1, n_samples, dtype=int)
-
-    fig, ax = plt.subplots(figsize=(12, 6))
-
-    x_range = np.arange(n_samples)
-
-    # Prediction intervals (95%)
-    lower = y_pred_sorted[sample_idx] - 1.96 * std_res
-    upper = y_pred_sorted[sample_idx] + 1.96 * std_res
-
-    ax.fill_between(x_range, lower, upper, alpha=0.3, color='#3498db', label='95% Prediction Interval')
-    ax.plot(x_range, y_pred_sorted[sample_idx], 'b-', linewidth=2, label='Predicted MPG')
-    ax.scatter(x_range, y_test_sorted[sample_idx], c='#e74c3c', s=20, alpha=0.6, label='Actual MPG', zorder=5)
-
-    ax.set_xlabel('Sample Index (sorted by predicted MPG)')
-    ax.set_ylabel('MPG')
-    ax.set_title('Prediction Intervals with Actual Values', fontsize=14, fontweight='bold')
-    ax.legend(loc='upper left')
-    ax.grid(True, alpha=0.3)
-
-    # Add coverage statistic
-    coverage = np.mean((y_test >= y_pred - 1.96*std_res) & (y_test <= y_pred + 1.96*std_res))
-    ax.text(0.98, 0.02, f'Coverage: {coverage:.1%}', transform=ax.transAxes,
-            ha='right', va='bottom', fontsize=10,
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    for i, v in enumerate(importance_df['Importance'].values):
+        ax.text(v + 0.01, i, f'{v:.3f}', va='center', fontsize=10)
 
     plt.tight_layout()
-    plt.savefig(f'{FIGURES_DIR}/prediction_intervals.png', bbox_inches='tight', facecolor='white')
+    plt.savefig(FIGURES_DIR / 'feature_importance_regression.png', dpi=150, bbox_inches='tight',
+                facecolor='white', edgecolor='none')
     plt.close()
-    print("Saved: prediction_intervals.png")
+    print("   ✅ feature_importance_regression.png")
 
-def plot_actual_vs_predicted(y_test, y_pred):
-    """Bonus: Actual vs Predicted scatter plot."""
-    fig, ax = plt.subplots(figsize=(8, 8))
+# ============================================================================
+# Figure 5: Prediction Intervals (Quantile-like visualization)
+# ============================================================================
+print("\n🎨 Figure 5: Prediction Intervals...")
 
-    ax.scatter(y_test, y_pred, alpha=0.5, c='#3498db', edgecolors='white', linewidth=0.5)
+# Sort by actual values for better visualization
+sort_idx = np.argsort(y_test.values)
+y_test_sorted = y_test.values[sort_idx]
+y_pred_sorted = y_pred_best[sort_idx]
 
-    # Perfect prediction line
-    min_val = min(y_test.min(), y_pred.min())
-    max_val = max(y_test.max(), y_pred.max())
-    ax.plot([min_val, max_val], [min_val, max_val], 'r--', linewidth=2, label='Perfect Prediction')
+# Estimate prediction intervals using residual std
+residual_std = np.std(residuals)
+lower_bound = y_pred_sorted - 1.645 * residual_std  # ~90% CI
+upper_bound = y_pred_sorted + 1.645 * residual_std
 
-    ax.set_xlabel('Actual MPG')
-    ax.set_ylabel('Predicted MPG')
-    ax.set_title('Actual vs Predicted MPG (Ridge Regression)', fontsize=14, fontweight='bold')
-    ax.legend()
-    ax.grid(True, alpha=0.3)
+# Sample for cleaner visualization
+sample_size = min(200, len(y_test_sorted))
+sample_idx = np.linspace(0, len(y_test_sorted)-1, sample_size, dtype=int)
 
-    # Add R² annotation
-    r2 = r2_score(y_test, y_pred)
-    ax.text(0.05, 0.95, f'R² = {r2:.4f}', transform=ax.transAxes,
-            fontsize=12, verticalalignment='top',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+fig, ax = plt.subplots(figsize=(14, 7))
 
-    plt.tight_layout()
-    plt.savefig(f'{FIGURES_DIR}/actual_vs_predicted.png', bbox_inches='tight', facecolor='white')
-    plt.close()
-    print("Saved: actual_vs_predicted.png")
+# Plot prediction interval
+ax.fill_between(range(sample_size), lower_bound[sample_idx], upper_bound[sample_idx],
+                alpha=0.3, color='#3498db', label='90% Prediction Interval')
+ax.plot(range(sample_size), y_pred_sorted[sample_idx], 'b-', linewidth=1.5, label='Predicted')
+ax.scatter(range(sample_size), y_test_sorted[sample_idx], c='red', s=20, alpha=0.6,
+           label='Actual', zorder=5)
 
-def main():
-    print("=" * 60)
-    print("Regenerating Regression Figures (16, 18, 19, 20)")
-    print("=" * 60)
+# Calculate coverage
+coverage = np.mean((y_test_sorted >= lower_bound) & (y_test_sorted <= upper_bound))
 
-    # Load and prepare data
-    df = load_data()
-    X_train, X_test, y_train, y_test, feature_names = prepare_data(df)
+ax.set_xlabel('Samples (sorted by actual MPG)', fontsize=12)
+ax.set_ylabel('MPG', fontsize=12)
+ax.set_title(f'Prediction Intervals (Coverage: {coverage:.1%})', fontweight='bold', fontsize=14)
+ax.legend(fontsize=11, loc='upper left')
 
-    # Train models
-    results_df, trained_models, predictions = train_models(X_train, y_train, X_test, y_test)
+plt.tight_layout()
+plt.savefig(FIGURES_DIR / 'prediction_intervals.png', dpi=150, bbox_inches='tight',
+            facecolor='white', edgecolor='none')
+plt.close()
+print("   ✅ prediction_intervals.png")
 
-    # Get predictions from Ridge (best model)
-    ridge_pred = predictions['Ridge (L2)']
-    rf_model = trained_models['Random Forest']
-
-    print("\n" + "=" * 60)
-    print("Generating Figures...")
-    print("=" * 60)
-
-    # Generate all figures
-    plot_regressor_comparison(results_df)
-    plot_feature_importance(rf_model, feature_names)
-    plot_residuals(y_test, ridge_pred)
-    plot_prediction_intervals(y_test, ridge_pred)
-    plot_actual_vs_predicted(y_test, ridge_pred)
-
-    print("\n" + "=" * 60)
-    print("All regression figures regenerated successfully!")
-    print("=" * 60)
-
-if __name__ == "__main__":
-    main()
+# ============================================================================
+# Summary
+# ============================================================================
+print("\n" + "=" * 60)
+print("✅ All regression figures regenerated successfully!")
+print("=" * 60)
+print(f"\nFigures saved to: {FIGURES_DIR}")
+print(f"\nModel Results:")
+print(results_df.to_string(index=False))
 

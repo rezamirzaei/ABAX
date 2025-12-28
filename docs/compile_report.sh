@@ -1,21 +1,65 @@
 #!/bin/bash
-# Script to compile the ABAX Technical Report
-# Requires pdflatex to be installed (e.g., MacTeX on macOS, TeX Live on Linux)
+# Compile ABAX Technical Report to PDF
+# Usage: ./compile_report.sh
 
-# Check if pdflatex is available
-if ! command -v pdflatex &> /dev/null; then
-    echo "Error: pdflatex is not installed or not in your PATH."
-    echo "Please install a LaTeX distribution (e.g., MacTeX for macOS)."
-    exit 1
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo "=============================================="
+echo "ABAX Technical Report Compilation"
+echo "=============================================="
+
+# Check for tectonic (preferred)
+if command -v tectonic &> /dev/null; then
+    echo "Using tectonic for compilation..."
+    tectonic ABAX_Technical_Report.tex
+    echo ""
+    echo "✅ PDF generated successfully: ABAX_Technical_Report.pdf"
+    exit 0
 fi
 
-echo "Compiling ABAX_Technical_Report.tex..."
-pdflatex -interaction=nonstopmode ABAX_Technical_Report.tex
-pdflatex -interaction=nonstopmode ABAX_Technical_Report.tex # Run twice for TOC
+# Check for pdflatex
+if command -v pdflatex &> /dev/null; then
+    echo "Using pdflatex for compilation..."
+    pdflatex -interaction=nonstopmode ABAX_Technical_Report.tex
+    pdflatex -interaction=nonstopmode ABAX_Technical_Report.tex  # Run twice for TOC
 
-if [ $? -eq 0 ]; then
-    echo "Compilation successful! PDF is located at docs/ABAX_Technical_Report.pdf"
-else
-    echo "Compilation failed. Check the log file for details."
+    # Clean up auxiliary files
+    rm -f *.aux *.log *.out *.toc *.fdb_latexmk *.fls *.synctex.gz
+
+    echo ""
+    echo "✅ PDF generated successfully: ABAX_Technical_Report.pdf"
+    exit 0
 fi
+
+# Check for latexmk
+if command -v latexmk &> /dev/null; then
+    echo "Using latexmk for compilation..."
+    latexmk -pdf -interaction=nonstopmode ABAX_Technical_Report.tex
+    latexmk -c  # Clean auxiliary files
+
+    echo ""
+    echo "✅ PDF generated successfully: ABAX_Technical_Report.pdf"
+    exit 0
+fi
+
+# No LaTeX compiler found
+echo ""
+echo "❌ Error: No LaTeX compiler found!"
+echo ""
+echo "Please install one of the following:"
+echo ""
+echo "Option 1 - Tectonic (recommended, lightweight):"
+echo "  brew install tectonic"
+echo ""
+echo "Option 2 - MacTeX (full LaTeX distribution):"
+echo "  brew install --cask mactex"
+echo ""
+echo "Option 3 - BasicTeX (smaller):"
+echo "  brew install --cask basictex"
+echo "  Then: sudo tlmgr install collection-fontsrecommended"
+echo ""
+exit 1
 
