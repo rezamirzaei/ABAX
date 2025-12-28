@@ -16,6 +16,8 @@ from src.models.evaluation import (
 from src.models.comparison import (
     get_classifiers,
     get_regressors,
+    get_knn_classifiers,
+    get_knn_regressors,
     compare_classifiers,
     compare_regressors,
 )
@@ -51,6 +53,8 @@ __all__ = [
     "compute_interval_width",
     "get_classifiers",
     "get_regressors",
+    "get_knn_classifiers",
+    "get_knn_regressors",
     "compare_classifiers",
     "compare_regressors",
     # Robust sparse models

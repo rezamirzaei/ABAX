@@ -23,6 +23,7 @@ from sklearn.ensemble import (
     GradientBoostingRegressor,
 )
 from sklearn.svm import SVC, SVR, LinearSVC, LinearSVR
+from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 
 from src.core.schemas import ModelComparison
 from src.models.trainer import train_model
@@ -39,6 +40,7 @@ def get_classifiers(
     Includes:
     - Linear models (L1/L2 regularization)
     - SVM (linear L1, RBF, polynomial kernels)
+    - KNN (K-Nearest Neighbors with different k values)
     - Ensemble methods (RF, GradientBoosting)
     """
     return {
@@ -71,6 +73,16 @@ def get_classifiers(
             kernel='poly', degree=3, class_weight=class_weight,
             random_state=random_state, probability=True
         ),
+        # KNN variants (different k values and distance metrics)
+        "KNN (k=3)": KNeighborsClassifier(
+            n_neighbors=3, weights='uniform', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=5, weighted)": KNeighborsClassifier(
+            n_neighbors=5, weights='distance', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=7, manhattan)": KNeighborsClassifier(
+            n_neighbors=7, weights='distance', metric='manhattan', n_jobs=-1
+        ),
         # Ensemble
         "Random Forest": RandomForestClassifier(
             n_estimators=100, max_depth=10, class_weight=class_weight,
@@ -91,6 +103,7 @@ def get_regressors(random_state: int = 42) -> Dict[str, BaseEstimator]:
     - Regularized (Ridge L2, Lasso L1, ElasticNet)
     - Robust (Huber, RANSAC)
     - SVM (linear, RBF kernel)
+    - KNN (K-Nearest Neighbors with different k values)
     - Ensemble (RF, GradientBoosting)
     """
     return {
@@ -106,12 +119,68 @@ def get_regressors(random_state: int = 42) -> Dict[str, BaseEstimator]:
         # SVM
         "SVR (Linear)": LinearSVR(epsilon=0.1, max_iter=2000, random_state=random_state),
         "SVR (RBF Kernel)": SVR(kernel='rbf', C=1.0, epsilon=0.1),
+        # KNN variants (different k values and distance metrics)
+        "KNN (k=3)": KNeighborsRegressor(
+            n_neighbors=3, weights='uniform', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=5, weighted)": KNeighborsRegressor(
+            n_neighbors=5, weights='distance', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=7, manhattan)": KNeighborsRegressor(
+            n_neighbors=7, weights='distance', metric='manhattan', n_jobs=-1
+        ),
         # Ensemble
         "Random Forest": RandomForestRegressor(
             n_estimators=100, max_depth=15, random_state=random_state, n_jobs=-1
         ),
         "Gradient Boosting": GradientBoostingRegressor(
             n_estimators=100, max_depth=5, random_state=random_state
+        ),
+    }
+
+
+def get_knn_classifiers() -> Dict[str, BaseEstimator]:
+    """
+    Get dictionary of KNN classifiers with different configurations.
+
+    Returns:
+        Dict with KNN classifiers varying in:
+        - k values (3, 5, 7)
+        - Weight schemes (uniform, distance)
+        - Distance metrics (euclidean, manhattan)
+    """
+    return {
+        "KNN (k=3)": KNeighborsClassifier(
+            n_neighbors=3, weights='uniform', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=5, weighted)": KNeighborsClassifier(
+            n_neighbors=5, weights='distance', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=7, manhattan)": KNeighborsClassifier(
+            n_neighbors=7, weights='distance', metric='manhattan', n_jobs=-1
+        ),
+    }
+
+
+def get_knn_regressors() -> Dict[str, BaseEstimator]:
+    """
+    Get dictionary of KNN regressors with different configurations.
+
+    Returns:
+        Dict with KNN regressors varying in:
+        - k values (3, 5, 7)
+        - Weight schemes (uniform, distance)
+        - Distance metrics (euclidean, manhattan)
+    """
+    return {
+        "KNN (k=3)": KNeighborsRegressor(
+            n_neighbors=3, weights='uniform', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=5, weighted)": KNeighborsRegressor(
+            n_neighbors=5, weights='distance', metric='euclidean', n_jobs=-1
+        ),
+        "KNN (k=7, manhattan)": KNeighborsRegressor(
+            n_neighbors=7, weights='distance', metric='manhattan', n_jobs=-1
         ),
     }
 
