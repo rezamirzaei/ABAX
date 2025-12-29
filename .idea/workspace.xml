@@ -4,12 +4,25 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="notebooks with results">
+    <list default="true" id="af8179b2-3fad-407e-9954-05e19cb2bbad" name="Changes" comment="new explanation file">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ABAX_Technical_Report.pdf" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/ABAX_Technical_Report.tex" beforeDir="false" afterPath="$PROJECT_DIR$/docs/ABAX_Technical_Report.tex" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/FINAL_RESULTS_REPORT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/IMPROVEMENTS_SUMMARY.md" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/docs/compile_report.sh" beforeDir="false" afterPath="$PROJECT_DIR$/docs/compile_report.sh" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scripts/regenerate_regression_figures.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/regenerate_regression_figures.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/evaluation_report.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/results_report.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/01_project_overview.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/01_project_overview.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/02_classification.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/02_classification.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/03_eda_regression.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/notebooks/04_regression.ipynb" beforeDir="false" afterPath="$PROJECT_DIR$/notebooks/04_regression.ipynb" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classification/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/classification/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classification/data.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/classification/data.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/classification/visualization.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/classification/visualization.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/comparison.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/comparison.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,7 +132,8 @@
       <workItem from="1766717112304" duration="13057000" />
       <workItem from="1766730327402" duration="6182000" />
       <workItem from="1766810064676" duration="24181000" />
-      <workItem from="1766895846673" duration="18847000" />
+      <workItem from="1766895846673" duration="23288000" />
+      <workItem from="1766972340175" duration="15043000" />
     </task>
     <task id="LOCAL-00001" summary="first commit, classification for UAH data and regression for EDA data">
       <option name="closed" value="true" />
@@ -201,7 +215,15 @@
       <option name="project" value="LOCAL" />
       <updated>1766963741549</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="new explanation file">
+      <option name="closed" value="true" />
+      <created>1766965666571</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1766965666571</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -217,7 +239,8 @@
     <MESSAGE value="better mindset for 02" />
     <MESSAGE value="more content" />
     <MESSAGE value="notebooks with results" />
-    <option name="LAST_COMMIT_MESSAGE" value="notebooks with results" />
+    <MESSAGE value="new explanation file" />
+    <option name="LAST_COMMIT_MESSAGE" value="new explanation file" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>

@@ -54,8 +54,6 @@ from src.classification.visualization import (
     plot_model_comparison,
     plot_confusion_matrix,
     plot_feature_importance,
-    plot_raw_accelerometer,
-    plot_behavior_comparison,
 )
 
 

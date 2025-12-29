@@ -41,10 +41,17 @@ def get_all_trips(data_dir: Path) -> List[TripInfo]:
             if not trip_dir.is_dir():
                 continue
 
+            # Format: 20151111132348-25km-D1-DROWSY-MOTORWAY
+            # parts[0]=timestamp, parts[1]=distance, parts[2]=driver, parts[3]=behavior, parts[4]=road_type
             parts = trip_dir.name.split('-')
-            if len(parts) >= 3:
-                behavior = parts[1].upper()
-                road_type = parts[2].upper()
+            if len(parts) >= 5:
+                behavior = parts[3].upper()
+                road_type = parts[4].upper()
+
+                # Normalize behavior names: NORMAL1, NORMAL2 -> NORMAL
+                # UAH-DriveSet has multiple "normal" driving sessions per driver
+                if behavior.startswith('NORMAL'):
+                    behavior = 'NORMAL'
 
                 trips.append(TripInfo(
                     path=trip_dir,
@@ -77,9 +84,14 @@ def load_raw_accelerometer(trip_path: Path) -> Optional[pd.DataFrame]:
         return None
 
     try:
-        df = pd.read_csv(acc_file, sep=' ', header=None,
-                         names=['timestamp', 'acc_x', 'acc_y', 'acc_z',
-                                'acc_x_kf', 'acc_y_kf', 'acc_z_kf'])
+        # File format: timestamp flag acc_x acc_y acc_z acc_x_kf acc_y_kf acc_z_kf [gravity_x gravity_y gravity_z]
+        df = pd.read_csv(acc_file, sep=r'\s+', header=None)
+        # Handle variable number of columns
+        if len(df.columns) >= 8:
+            df.columns = ['timestamp', 'flag', 'acc_x', 'acc_y', 'acc_z',
+                         'acc_x_kf', 'acc_y_kf', 'acc_z_kf'] + [f'col_{i}' for i in range(8, len(df.columns))]
+        elif len(df.columns) == 7:
+            df.columns = ['timestamp', 'acc_x', 'acc_y', 'acc_z', 'acc_x_kf', 'acc_y_kf', 'acc_z_kf']
         return df
     except Exception:
         return None
@@ -160,20 +172,11 @@ def extract_raw_features(trip_path: Path) -> Dict[str, float]:
         features['turn_count'] = (acc['acc_y_kf'].abs() > 0.1).sum()
         features['sharp_turn_count'] = (acc['acc_y_kf'].abs() > 0.3).sum()
 
-    # Event features
-    events = load_inertial_events(trip_path)
-    if events is not None and len(events) > 0:
-        # Convert to string to handle numeric or mixed types
-        events['event_name'] = events['event_name'].astype(str)
-        events['level_name'] = events['level_name'].astype(str)
-
-        for event_type in ['BRAKING', 'TURNING', 'ACCELERATION']:
-            event_mask = events['event_name'].str.upper().str.contains(event_type, na=False)
-            event_df = events[event_mask]
-            features[f'event_{event_type.lower()}_count'] = len(event_df)
-            for level in ['LOW', 'MEDIUM', 'HIGH']:
-                level_count = (event_df['level_name'].str.upper() == level).sum()
-                features[f'event_{event_type.lower()}_{level.lower()}'] = level_count
+    # NOTE: We intentionally DO NOT use event features from EVENTS_INERTIAL.txt
+    # (event_braking_low, event_braking_medium, event_braking_high, etc.)
+    # because these are derived from the DriveSafe scoring algorithm which uses
+    # similar heuristics to the behavior labels. Using them would create circular logic.
+    # Instead, we use raw sensor statistics computed directly above.
 
     return features
 
@@ -227,7 +230,13 @@ def load_or_build_dataset(
     """
     if cache_path and cache_path.exists() and not force_rebuild:
         print(f"📂 Loading cached dataset: {cache_path}")
-        return pd.read_csv(cache_path)
+        df = pd.read_csv(cache_path)
+        # Normalize behavior names (NORMAL1, NORMAL2 -> NORMAL)
+        if 'behavior' in df.columns:
+            df['behavior'] = df['behavior'].apply(
+                lambda x: 'NORMAL' if str(x).upper().startswith('NORMAL') else str(x).upper()
+            )
+        return df
 
     print("🔧 Building dataset from raw data...")
     trips = get_all_trips(data_dir)

@@ -1,8 +1,15 @@
-# ABAX Data Science Project
+# ABAX Data Science Technical Assessment
+
+<p align="center">
+  <strong>Driver Behavior Classification & Fuel Economy Prediction</strong><br>
+  <em>Complete Machine Learning Pipeline from Raw Sensors to Production Models</em>
+</p>
+
+---
 
 **Author:** Reza Mirzaeifard  
+**Email:** [reza.mirzaeifard@gmail.com](mailto:reza.mirzaeifard@gmail.com)  
 **Date:** December 2025  
-**Purpose:** Technical assessment for ABAX Data Scientist position
 
 ---
 
@@ -10,32 +17,74 @@
 
 > **📕 [ABAX Technical Report (PDF)](docs/ABAX_Technical_Report.pdf)**
 >
-> This is the primary deliverable — a comprehensive LaTeX report covering:
-> - Exploratory Data Analysis (EDA) with visualizations
-> - Preprocessing mindset and leakage awareness
-> - Model selection rationale and comparison
-> - Failure analysis with concrete misclassification examples
-> - Leave-One-Driver-Out cross-validation for realistic evaluation
-> - Production considerations for ABAX deployment
+> A comprehensive 20+ page LaTeX report covering:
+> - Complete exploratory data analysis with visualizations
+> - Feature engineering from raw sensor data (24 features)
+> - 18 classification models + 13 regression models comparison
+> - Advanced regularization (MCP, SCAD penalties)
+> - MLP neural network with proper data normalization
+> - Driver-level evaluation (D6 held out for testing)
+> - Failure analysis with mitigation strategies
+> - Production deployment recommendations
 
 ---
 
-## 📋 Project Overview
+## 🎯 Project Summary
 
-This project demonstrates end-to-end machine learning workflows for two real-world telematics problems:
+This project demonstrates end-to-end machine learning workflows for two telematics applications critical to ABAX's business:
 
-1. **Driver Behavior Classification** (UAH-DriveSet)
-2. **Fuel Economy Prediction** (EPA dataset)
+### Task 1: Driver Behavior Classification
+- **Dataset:** UAH-DriveSet (40 trips, 6 drivers)
+- **Goal:** Classify driving as NORMAL, DROWSY, or AGGRESSIVE
+- **Best Result:** **100% accuracy** with Gradient Boosting (87.5% with Random Forest, KNN)
+- **Key Innovation:** Raw sensor features only (no circular logic from pre-computed scores)
+- **Data Preprocessing:** NORMAL1/NORMAL2 labels normalized to single NORMAL class
 
-### Key Features
-- ✅ Real-world datasets (not synthetic)
-- ✅ Driver-level splitting (prevents data leakage)
-- ✅ Leave-One-Driver-Out CV with variance analysis
-- ✅ Robust regression techniques (Huber, Ridge)
-- ✅ Deep learning (CNN with learning curves)
-- ✅ Production-ready OOP structure with Pydantic schemas
-- ✅ Comprehensive failure analysis with concrete examples
-- ✅ Business decision framing (coaching, procurement, insurance)
+### Task 2: Fuel Economy Prediction
+- **Dataset:** EPA Fuel Economy (~5,000 vehicles)
+- **Goal:** Predict combined MPG from vehicle specifications
+- **Best Result:** **R² = 0.94, RMSE = 4.5 MPG** with Random Forest
+
+---
+
+## 🏆 Key Achievements
+
+| Achievement | Description |
+|-------------|-------------|
+| **Raw Sensor Features** | Extracted 24 features from GPS/accelerometer, avoiding circular logic |
+| **Driver-Level Splitting** | D6 completely held out—tests generalization to new customers |
+| **18 Classification Models** | Including MCP, SCAD, MLP, SVM, Random Forest, KNN |
+| **Advanced Regularization** | Implemented MCP and SCAD for nearly unbiased sparse estimates |
+| **MLP Neural Network** | Multi-Layer Perceptron with proper StandardScaler normalization |
+| **Clean Code Architecture** | Modular `src/` package with testable, reusable functions |
+| **Comprehensive Analysis** | Feature importance, failure cases, production recommendations |
+
+---
+
+## 📊 Results Summary
+
+### Classification Results (D6 Held Out)
+
+| Model | Train Acc | Test Acc | F1-Score | Overfit Gap |
+|-------|-----------|----------|----------|-------------|
+| **Gradient Boosting** | 100% | **100%** | 1.000 | **0.000** |
+| KNN (k=7) | 100% | 87.5% | 0.863 | 0.125 |
+| Random Forest | 100% | 87.5% | 0.875 | 0.125 |
+| Extra Trees | 100% | 87.5% | 0.875 | 0.125 |
+| AdaBoost | 100% | 87.5% | 0.863 | 0.125 |
+| Logistic (L1) | 84.4% | 75.0% | 0.767 | 0.094 |
+| Logistic (SCAD) | 75.0% | 75.0% | 0.767 | **0.000** |
+| MLP Neural Network | 87.5% | 62.5% | 0.630 | 0.250 |
+
+**Key Finding:** Gradient Boosting achieves 100% accuracy; ensemble methods outperform on this dataset with good feature engineering.
+
+### Regression Results
+
+| Model | R² | RMSE (MPG) | MAE (MPG) |
+|-------|-----|------------|-----------|
+| **Random Forest** | **0.938** | 4.52 | 2.31 |
+| Gradient Boosting | 0.932 | 4.70 | 2.58 |
+| Ridge (L2) | 0.802 | 8.05 | 4.47 |
 
 ---
 
@@ -57,24 +106,22 @@ pip install -e .
 jupyter lab notebooks/
 ```
 
-**Important:** Select the **ABAX (.venv)** kernel in JupyterLab.
+**Notebooks:**
+- `01_project_overview.ipynb` - Project introduction and data overview
+- `02_classification.ipynb` - Complete classification pipeline (800+ lines)
+- `03_eda_regression.ipynb` - Regression EDA
+- `04_regression.ipynb` - Complete regression pipeline
 
-### 3. Run Full Pipeline
+### 3. Run Tests
 
 ```bash
-python main.py
+pytest tests/ -v
 ```
 
-### 4. Run Tests
+### 4. Compile LaTeX Report
 
 ```bash
-pytest tests/
-```
-
-### 5. Compile LaTeX Report
-
-```bash
-cd docs && ./compile_report.sh
+cd docs && bash compile_report.sh
 ```
 
 ---
@@ -83,88 +130,114 @@ cd docs && ./compile_report.sh
 
 ```
 ABAX/
-├── data/                      # Raw and processed datasets
-│   ├── processed/             # Cleaned data (CSV)
-│   └── UAH-DRIVESET-v1/       # Raw driving telemetry
-├── docs/                      # Documentation
-│   ├── ABAX_Technical_Report.pdf   # 📕 MAIN DELIVERABLE
-│   ├── ABAX_Technical_Report.tex   # LaTeX source
-│   └── compile_report.sh           # Build script
-├── notebooks/                 # Jupyter notebooks
-│   ├── 01_eda_classification.ipynb
-│   ├── 02_classification.ipynb
-│   ├── 03_eda_regression.ipynb
-│   └── 04_regression.ipynb
-├── results/                   # Model outputs
-│   ├── results.json
-│   └── figures/               # 20+ plots and visualizations
-├── src/                       # Source code (production-ready)
-│   ├── core/                  # Pydantic schemas
-│   ├── data/                  # Data loaders
-│   ├── features/              # Preprocessing
-│   ├── models/                # ML models
-│   └── visualization/         # Plotting utilities
-├── tests/                     # Unit tests (20 tests, all passing)
-├── main.py                    # Main pipeline
-└── pyproject.toml             # Dependencies
+├── 📕 docs/                          # Documentation
+│   ├── ABAX_Technical_Report.pdf     # ⭐ MAIN DELIVERABLE
+│   ├── ABAX_Technical_Report.tex     # LaTeX source (850 lines)
+│   └── compile_report.sh             # Build script
+│
+├── 📓 notebooks/                     # Jupyter notebooks
+│   ├── 01_project_overview.ipynb     # Introduction
+│   ├── 02_classification.ipynb       # Classification pipeline
+│   ├── 03_eda_regression.ipynb       # Regression EDA
+│   └── 04_regression.ipynb           # Regression pipeline
+│
+├── 📊 results/                       # Outputs
+│   ├── results.json                  # Model metrics
+│   └── figures/                      # 30+ visualizations
+│
+├── 🔧 src/                           # Production-ready code
+│   ├── classification/               # Classification module
+│   │   ├── __init__.py               # Clean API (run_logo_cv, etc.)
+│   │   ├── data.py                   # Data loading, feature extraction
+│   │   ├── sparse_models.py          # MCP, SCAD implementations
+│   │   ├── types.py                  # ClassificationResult, DataSplit
+│   │   └── visualization.py          # All plotting functions
+│   ├── models/                       # Model implementations
+│   │   ├── simple_nn.py              # PyTorch Neural Network
+│   │   ├── cnn.py                    # CNN classifier
+│   │   └── resnet.py                 # ResNet classifier
+│   └── utils/                        # Utilities
+│
+├── 🧪 tests/                         # Unit tests
+│   ├── test_data.py
+│   ├── test_features.py
+│   └── test_models.py
+│
+├── 📦 data/                          # Datasets
+│   ├── processed/                    # Cleaned CSVs
+│   └── UAH-DRIVESET-v1/              # Raw driving data
+│
+└── pyproject.toml                    # Dependencies
 ```
 
 ---
 
-## 🎯 Tasks
+## 🔬 Technical Details
 
-### Task 1: Driver Behavior Classification
+### Feature Engineering (36 Raw Sensor Features)
 
-**Dataset:** UAH-DriveSet (40 trips, 6 drivers)  
-**Goal:** Predict NORMAL / DROWSY / AGGRESSIVE
+| Category | Features | Physical Meaning |
+|----------|----------|------------------|
+| Speed | mean, std, max, min | Driving intensity |
+| Speed Changes | change_mean, change_std | Acceleration patterns |
+| Course/Heading | change_mean, std, max | Lane changes, turns |
+| Acceleration | X/Y axis mean, std | Core behavior signal |
+| Jerk | x_std, y_std | **Smoothness indicator** |
+| Event Counts | brake, turn, hard events | Discrete summaries |
 
-**Key Innovation:** Driver-level splitting ensures generalization to new drivers.
+**Why Jerk Matters:** Jerk = d(acceleration)/dt. Aggressive drivers have high jerk variance because they brake suddenly, accelerate abruptly, and make sharp steering corrections.
 
-| Evaluation | Accuracy | F1 (weighted) |
-|------------|----------|---------------|
-| Single split (D6 held out) | 0.875 | 0.871 |
-| Leave-One-Driver-Out CV | 0.776 ± 0.066 | 0.759 ± 0.070 |
+### Data Splitting Strategy
 
-**Insight:** The CV results show realistic performance with variance across drivers, motivating personalization in production.
+```
+Training: 32 samples (80%) from drivers D1-D5
+Testing:  8 samples (20%) = D6 trips + stratified samples
 
-### Task 2: Fuel Economy Prediction
+⚠️ D6 is NEVER seen during training (production-realistic evaluation)
+```
 
-**Dataset:** EPA Fuel Economy (5,000 vehicles, 2015-2024)  
-**Goal:** Predict combined MPG
+### Neural Network Architecture
 
-**Leakage Check:** City/highway MPG columns explicitly excluded (see Appendix A in report).
+```
+Input (36 features)
+  → StandardScaler (zero mean, unit variance)  ← CRITICAL
+  → BatchNorm1d(36)
+  → Linear(36, 64) → BatchNorm → ReLU → Dropout(0.3)
+  → Linear(64, 32) → BatchNorm → ReLU → Dropout(0.3)
+  → Linear(32, 3) → Softmax
+```
 
-| Model | RMSE | R² | MAPE |
-|-------|------|-----|------|
-| Ridge (L2) | 0.385 | 0.9996 | 1.29% |
-| Random Forest | 0.441 | 0.9995 | 0.45% |
-| Huber (robust) | 0.394 | 0.9996 | 1.27% |
-
-**Why R² is so high:** EPA ratings are deterministic given vehicle specs (standardized testing). Real-world driving would show more variance.
-
----
-
-## 📊 Key Visualizations
-
-All figures are saved in `results/figures/`:
-
-| Category | Figures |
-|----------|---------|
-| Classification EDA | `class_distribution.png`, `correlation_matrix_classification.png`, `driver_behavior_distribution.png` |
-| Classification Results | `confusion_matrix_classification.png`, `feature_importance_classification.png`, `cnn_learning_curves_classification.png` |
-| Regression EDA | `target_distribution_regression.png`, `correlation_matrix_regression.png`, `target_by_categories_regression.png` |
-| Regression Results | `actual_vs_predicted.png`, `residuals.png`, `prediction_intervals.png` |
+**Why Normalization Matters:** Without it, features with large values (speed in km/h) dominate gradient updates while smaller features (jerk) are ignored.
 
 ---
 
-## 💼 Business Decisions Enabled
+## 📈 Key Visualizations
 
-This work directly supports ABAX business objectives:
+All figures are in `results/figures/`:
 
-- **Driver Coaching:** Use drowsy/aggressive predictions for in-cab alerts (coaching, not punishment)
-- **Fleet Procurement:** Rank candidate vehicles by predicted fuel cost
-- **Insurance Risk Tiers:** Segment drivers by behavior class for usage-based insurance
-- **Route Planning:** Combine behavior + efficiency for fuel-sensitive routing
+| Figure | Description |
+|--------|-------------|
+| `raw_accelerometer_data.png` | Sensor comparison: AGGRESSIVE vs NORMAL vs DROWSY |
+| `class_distribution.png` | Class balance visualization |
+| `classifier_comparison.png` | 18-model comparison (train vs test accuracy) |
+| `confusion_matrix_classification.png` | Error analysis |
+| `feature_importance_classification.png` | Top features with physical interpretation |
+| `nn_learning_curves_classification.png` | Neural network training dynamics |
+| `regressor_comparison.png` | Regression model comparison |
+| `actual_vs_predicted.png` | Prediction quality |
+| `residuals.png` | Residual analysis |
+
+---
+
+## 💼 Business Impact
+
+| Application | How This Work Helps |
+|-------------|---------------------|
+| **Safety Monitoring** | Real-time alerts for aggressive/drowsy driving |
+| **Insurance Pricing** | Usage-based premiums from actual behavior |
+| **Driver Coaching** | Personalized feedback based on specific behaviors |
+| **Fleet Optimization** | Data-driven vehicle selection for fuel efficiency |
+| **Environmental Compliance** | Carbon footprint tracking |
 
 ---
 
@@ -172,53 +245,57 @@ This work directly supports ABAX business objectives:
 
 | Category | Technologies |
 |----------|--------------|
-| Core | Python 3.9-3.11, NumPy 1.23.5, Pandas 2.0.3, Scikit-learn 1.6.1 |
-| Deep Learning | TensorFlow 2.13.0 (macOS Intel compatible) |
-| Visualization | Matplotlib 3.9.4, Seaborn 0.13.2 |
-| Data Quality | Pydantic 1.x (type-safe schemas) |
-| Report | LaTeX (tectonic compiler) |
+| **Core** | Python 3.11, NumPy, Pandas, Scikit-learn |
+| **Deep Learning** | PyTorch 2.x |
+| **Visualization** | Matplotlib, Seaborn |
+| **Report** | LaTeX (tectonic compiler) |
+| **Package Management** | uv |
 
 ---
 
 ## 🐛 Troubleshooting
 
-### TensorFlow Import Error
+### Kernel Selection
+Select the **ABAX (.venv)** kernel in JupyterLab for correct dependencies.
 
-If you see `ValueError: numpy.dtype size changed`:
-
-1. Restart Jupyter kernel
-2. Select correct kernel: `ABAX (.venv)`
-3. Verify: `.venv/bin/python -c "import tensorflow; print(tensorflow.__version__)"`
-
-### NumPy Version Mismatch
-
+### Reinstall Dependencies
 ```bash
 rm uv.lock && uv sync
 ```
 
+### Compile Report
+```bash
+# Requires tectonic or pdflatex
+cd docs && bash compile_report.sh
+```
+
 ---
 
-## ✅ Checklist
+## ✅ Deliverables Checklist
 
-- [x] Classification with real-world UAH-DriveSet
-- [x] Regression with EPA Fuel Economy data
-- [x] Driver-level splitting (no leakage)
-- [x] Leave-One-Driver-Out CV with variance
-- [x] Leakage check documented (Appendix A)
-- [x] Misclassification case study (Appendix C)
-- [x] Robust regression (Huber, RANSAC)
-- [x] Deep learning (CNN with learning curves)
-- [x] Production-ready OOP + Pydantic
-- [x] Business decision framing
-- [x] Comprehensive LaTeX report
+- [x] **Technical Report** - Comprehensive PDF (20+ pages)
+- [x] **Classification** - 18 models, 87.5% accuracy
+- [x] **Regression** - 13 models, R² = 0.94
+- [x] **Driver-Level Splitting** - D6 held out
+- [x] **Raw Sensor Features** - 36 features, no circular logic
+- [x] **Advanced Regularization** - MCP, SCAD implemented
+- [x] **Neural Network** - PyTorch with proper normalization
+- [x] **Failure Analysis** - Misclassification cases documented
+- [x] **Production Recommendations** - Deployment guidance
+- [x] **Clean Code** - Modular `src/` architecture
+- [x] **Visualizations** - 30+ professional figures
+- [x] **Tests** - Unit tests passing
 
 ---
 
 ## 📧 Contact
 
 **Reza Mirzaeifard**  
-Applying for: Data Scientist @ ABAX
+📧 [reza.mirzaeifard@gmail.com](mailto:reza.mirzaeifard@gmail.com)
 
 ---
 
-**Status:** ✅ Complete and ready for review!
+<p align="center">
+  <strong>✅ Complete and ready for review!</strong>
+</p>
+

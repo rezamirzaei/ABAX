@@ -40,6 +40,24 @@ except ImportError:
     plot_cnn_training_history = None
     _HAS_CNN = False
 
+# Optional: ResNet models (requires PyTorch)
+try:
+    from src.models.resnet import ResNetClassifier, plot_resnet_training_history
+    _HAS_RESNET = True
+except ImportError:
+    ResNetClassifier = None
+    plot_resnet_training_history = None
+    _HAS_RESNET = False
+
+# Optional: Simple Neural Network (requires PyTorch)
+try:
+    from src.models.simple_nn import SimpleNNClassifier, plot_nn_training_history
+    _HAS_SIMPLE_NN = True
+except ImportError:
+    SimpleNNClassifier = None
+    plot_nn_training_history = None
+    _HAS_SIMPLE_NN = False
+
 __all__ = [
     "ModelTrainer",
     "train_model",
@@ -70,4 +88,10 @@ __all__ = [
 
 if _HAS_CNN:
     __all__.extend(["CNNClassifier", "CNNClassifierRaw", "plot_cnn_training_history"])
+
+if _HAS_RESNET:
+    __all__.extend(["ResNetClassifier", "plot_resnet_training_history"])
+
+if _HAS_SIMPLE_NN:
+    __all__.extend(["SimpleNNClassifier", "plot_nn_training_history"])
 

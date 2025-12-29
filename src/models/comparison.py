@@ -115,7 +115,6 @@ def get_regressors(random_state: int = 42) -> Dict[str, BaseEstimator]:
         "ElasticNet (L1+L2)": ElasticNet(alpha=0.1, l1_ratio=0.5, max_iter=2000, random_state=random_state),
         # Robust
         "Huber (Robust)": HuberRegressor(epsilon=1.35, max_iter=1000),
-        "RANSAC (Robust)": RANSACRegressor(random_state=random_state),
         # SVM
         "SVR (Linear)": LinearSVR(epsilon=0.1, max_iter=2000, random_state=random_state),
         "SVR (RBF Kernel)": SVR(kernel='rbf', C=1.0, epsilon=0.1),
