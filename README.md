@@ -132,7 +132,7 @@ cd docs && bash compile_report.sh
 ABAX/
 ├── 📕 docs/                          # Documentation
 │   ├── ABAX_Technical_Report.pdf     # ⭐ MAIN DELIVERABLE
-│   ├── ABAX_Technical_Report.tex     # LaTeX source (850 lines)
+│   ├── ABAX_Technical_Report.tex     # LaTeX source
 │   └── compile_report.sh             # Build script
 │
 ├── 📓 notebooks/                     # Jupyter notebooks
@@ -143,29 +143,30 @@ ABAX/
 │
 ├── 📊 results/                       # Outputs
 │   ├── results.json                  # Model metrics
-│   └── figures/                      # 30+ visualizations
+│   └── figures/                      # 14 report visualizations
 │
 ├── 🔧 src/                           # Production-ready code
 │   ├── classification/               # Classification module
-│   │   ├── __init__.py               # Clean API (run_logo_cv, etc.)
+│   │   ├── __init__.py               # Clean API exports
 │   │   ├── data.py                   # Data loading, feature extraction
 │   │   ├── sparse_models.py          # MCP, SCAD implementations
 │   │   ├── types.py                  # ClassificationResult, DataSplit
-│   │   └── visualization.py          # All plotting functions
+│   │   └── visualization.py          # Plotting functions
 │   ├── models/                       # Model implementations
-│   │   ├── simple_nn.py              # PyTorch Neural Network
-│   │   ├── cnn.py                    # CNN classifier
-│   │   └── resnet.py                 # ResNet classifier
+│   │   ├── simple_nn.py              # MLP Neural Network
+│   │   ├── comparison.py             # Model comparison utilities
+│   │   └── evaluation.py             # Metrics and evaluation
+│   ├── data/                         # Data loaders
 │   └── utils/                        # Utilities
 │
 ├── 🧪 tests/                         # Unit tests
-│   ├── test_data.py
-│   ├── test_features.py
-│   └── test_models.py
 │
 ├── 📦 data/                          # Datasets
-│   ├── processed/                    # Cleaned CSVs
+│   ├── processed/                    # Cached feature CSVs
 │   └── UAH-DRIVESET-v1/              # Raw driving data
+│
+├── scripts/                          # Utility scripts
+│   └── generate_notebook_figures.py  # Figure generation
 │
 └── pyproject.toml                    # Dependencies
 ```
@@ -174,7 +175,7 @@ ABAX/
 
 ## 🔬 Technical Details
 
-### Feature Engineering (36 Raw Sensor Features)
+### Feature Engineering (24 Raw Sensor Features)
 
 | Category | Features | Physical Meaning |
 |----------|----------|------------------|

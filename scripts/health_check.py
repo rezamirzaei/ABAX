@@ -41,8 +41,7 @@ def check_project():
         'data',
         'docs',
         'results',
-        'logs',
-        'logs/cnn_experiments',
+        'scripts',
     ]
 
     print("\n✅ Directory Structure:")
@@ -68,7 +67,7 @@ def check_project():
     # Check notebooks
     notebook_dir = project_root / 'notebooks'
     notebooks = [
-        '01_eda_classification.ipynb',
+        '01_project_overview.ipynb',
         '02_classification.ipynb',
         '03_eda_regression.ipynb',
         '04_regression.ipynb',
